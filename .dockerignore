@@ -7,3 +7,9 @@ dist
 .output
 coverage
 test-results
+
+.agents/
+.github/
+.vscode/
+docs/
+*.log
