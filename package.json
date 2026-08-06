@@ -6,10 +6,10 @@
     "#/*": "./src/*"
   },
   "scripts": {
-    "dev": "vinxi dev",
+    "dev": "vite dev",
     "generate-routes": "tsr generate",
-    "build": "vinxi build",
-    "start": "vinxi start",
+    "build": "vite build",
+    "start": "bun dist/server/server.js",
     "preview": "vite preview",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
