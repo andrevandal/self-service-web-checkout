@@ -13,3 +13,7 @@ __unconfig*
 todos.json
 
 .data/
+
+coverage/
+test-results/
+playwright-report/

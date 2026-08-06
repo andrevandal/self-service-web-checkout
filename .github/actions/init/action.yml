@@ -1,0 +1,31 @@
+name: Initialize
+
+description: Set up the pinned Bun toolchain, restore dependency caches, and install dependencies
+
+runs:
+  using: composite
+  steps:
+    - name: Set up toolchain
+      uses: moonrepo/setup-toolchain@v0
+      with:
+        auto-install: true
+
+    - name: Cache Bun dependencies
+      uses: actions/cache@v4
+      with:
+        path: ~/.bun/install/cache
+        key: bun-${{ hashFiles('**/bun.lock') }}
+        restore-keys: |
+          bun-
+
+    - name: Cache Playwright browsers
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ hashFiles('**/bun.lock') }}
+        restore-keys: |
+          playwright-${{ runner.os }}-
+
+    - name: Install dependencies
+      shell: bash
+      run: bun install --frozen-lockfile

@@ -1,0 +1,46 @@
+name: Checks
+
+on:
+  pull_request:
+  push:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize
+        uses: ./.github/actions/init
+
+      - name: Lint
+        run: bun run lint
+
+      - name: Check formatting
+        run: bun run format
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Test with coverage
+        run: bun test --coverage --coverage-reporter=lcov
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v7
+        with:
+          files: coverage/lcov.info
+          token: ${{ secrets.CODECOV_TOKEN }}
+          fail_ci_if_error: true
+
+      - name: Install Chromium
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run end-to-end tests
+        run: bun run test:e2e
+
+      - name: Build application
+        run: bun run build
+
+      - name: Build container
+        run: docker build -f Dockerfile .
