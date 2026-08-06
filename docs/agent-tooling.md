@@ -24,10 +24,10 @@ skills under `.agents/skills/`:
 - `codebase-design`
 - `code-review`
 
-`skills-lock.json` records each source path and the installer-recorded computed
-hash of the upstream source content at that path. The hash identifies the
-upstream source used by the installer, not the generated file under
-`.agents/skills/`. Do not fabricate `.agents/`, add empty files, or create
+`skills-lock.json` records each source path and the installer-internal
+`computedHash` integrity metadata. It is not a manual verification value and
+should not be manually reproduced against vendored or upstream content. Do not
+fabricate `.agents/`, add empty files, or create
 per-agent rule/instruction shims. Refresh the selected files with
 `bunx skills update`, review the generated diff and lockfile, and commit
 changed generated files exactly as upstream produced them.
