@@ -64,7 +64,7 @@ console.log("Interactive update prompts (run inside the named harness):");
 console.log(
   "Claude Code: /plugin marketplace add obra/superpowers-marketplace; then /plugin install superpowers@superpowers-marketplace",
 );
-console.log("Codex CLI: /plugins, search for superpowers, then select Install Plugin");
+console.log("Codex CLI: /plugins, search for superpowers, then select Update Plugin");
 console.log(
   "OpenCode: Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md",
 );

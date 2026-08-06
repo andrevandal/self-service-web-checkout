@@ -1,7 +1,11 @@
 import { expect, test } from "bun:test";
 
-test("agent update script reports skills update command", async () => {
+test("agent update script prints the Codex plugin update prompt", async () => {
   const result = Bun.spawnSync(["bun", "scripts/update-agent-plugins.ts", "--dry-run"]);
-  expect(new TextDecoder().decode(result.stdout)).toContain("bunx skills update");
+  const output = new TextDecoder().decode(result.stdout);
+  expect(output).toContain("bunx skills update");
+  expect(output).toContain(
+    "Codex CLI: /plugins, search for superpowers, then select Update Plugin",
+  );
   expect(result.exitCode).toBe(0);
 });
