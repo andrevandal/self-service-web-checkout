@@ -1,5 +1,7 @@
 import { defineConfig } from "vite";
 import { devtools } from "@tanstack/devtools-vite";
+import { envOnlyMacros } from "vite-env-only";
+import ViteEnv from "@vite-env/core/plugin";
 
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 
@@ -8,7 +10,14 @@ import tailwindcss from "@tailwindcss/vite";
 
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
-  plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
+  plugins: [
+    devtools(),
+    tailwindcss(),
+    ViteEnv({ configFile: "./src/env.ts" }),
+    ...envOnlyMacros(),
+    tanstackStart(),
+    viteReact(),
+  ],
 });
 
 export default config;
