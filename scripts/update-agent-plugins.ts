@@ -62,7 +62,7 @@ successful =
 
 console.log("Interactive update prompts (run inside the named harness):");
 console.log(
-  "Claude Code: /plugin marketplace add obra/superpowers-marketplace; then /plugin install superpowers@superpowers-marketplace",
+  "Claude Code: /plugin marketplace update superpowers-marketplace; then /plugin update superpowers@superpowers-marketplace",
 );
 console.log("Codex CLI: /plugins, search for superpowers, then select Update Plugin");
 console.log(

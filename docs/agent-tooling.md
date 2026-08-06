@@ -57,7 +57,7 @@ The setup helper executes real noninteractive commands only when the correspondi
 
 For interactive-only harnesses, the helpers print the exact upstream prompt instead of pretending to install anything:
 
-- **Claude Code:** `/plugin marketplace add obra/superpowers-marketplace`, followed by `/plugin install superpowers@superpowers-marketplace`.
+- **Claude Code:** `/plugin marketplace update superpowers-marketplace`, then `/plugin update superpowers@superpowers-marketplace`.
 - **Codex CLI:** open `/plugins`, search for `superpowers`, and select `Install Plugin` (or update the installed plugin there).
 - **OpenCode:** tell OpenCode, `Fetch and follow instructions from https://raw.githubusercontent.com/obra/superpowers/refs/heads/main/.opencode/INSTALL.md`.
 - **Cursor:** use `/add-plugin superpowers` in Cursor Agent chat.
