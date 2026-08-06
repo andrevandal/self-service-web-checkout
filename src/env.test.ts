@@ -13,3 +13,7 @@ test("rejects malformed DATABASE_URL", () => {
     "DATABASE_URL",
   );
 });
+
+test("coerces string PORT to a number", () => {
+  expect(parseServerEnv({ PORT: "3000" }).PORT).toBe(3000);
+});

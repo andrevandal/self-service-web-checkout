@@ -7,9 +7,13 @@ const serverEnvFields = {
     v.regex(/^(file:|libsql:)/, "DATABASE_URL must start with file: or libsql:"),
   ),
   DATABASE_AUTH_TOKEN: v.optional(v.string()),
-  PORT: v.optional(
-    v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)),
-    3000,
+  PORT: v.pipe(
+    v.optional(v.union([v.number(), v.string()]), 3000),
+    v.transform((value) => (typeof value === "string" ? Number(value) : value)),
+    v.number(),
+    v.integer(),
+    v.minValue(1),
+    v.maxValue(65535),
   ),
 };
 
