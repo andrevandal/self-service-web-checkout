@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint: { run: "bunx oxlint --fix {staged_files}", stage_fixed: true }
+    format: { run: "bunx oxfmt --write {staged_files}", stage_fixed: true }
+commit-msg:
+  commands:
+    conventional: { run: "bunx commitlint --edit {1}" }
+pre-push:
+  commands:
+    affected-tests: { run: "bun scripts/affected-tests.ts {push_files}" }
