@@ -2,7 +2,7 @@ pre-commit:
   parallel: true
   commands:
     lint: { glob: "*.{js,ts,jsx,tsx}", run: "bunx oxlint --fix {staged_files}", stage_fixed: true }
-    format: { glob: "*.{js,ts,jsx,tsx,json,jsonc,md,css,html}", run: "bunx oxfmt --write {staged_files}", stage_fixed: true }
+    format: { glob: "*.{js,ts,jsx,tsx,json,jsonc}", run: "bunx oxfmt --write {staged_files}", stage_fixed: true }
 commit-msg:
   commands:
     conventional: { run: "bunx commitlint --edit {1}" }
