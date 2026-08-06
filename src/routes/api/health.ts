@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { env as serverEnv } from "virtual:env/server";
+import { serverEnv } from "../../env.server";
 
 export { serverEnv };
 
