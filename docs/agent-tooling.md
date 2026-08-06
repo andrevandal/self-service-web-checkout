@@ -14,7 +14,9 @@ Junie is the documented exception: point **Settings → Tools → Junie → Proj
 
 ## Tier 3: Vendored OpenCode engineering skills
 
-The upstream `mattpocock/skills` installer owns the OpenCode target directory. This repository vendors only the nonempty files produced for these five skills:
+The upstream `mattpocock/skills` installer owns the OpenCode target directory.
+This checkout keeps only the nonempty files generated for these five selected
+skills under `.agents/skills/`:
 
 - `setup-matt-pocock-skills`
 - `tdd`
@@ -22,7 +24,14 @@ The upstream `mattpocock/skills` installer owns the OpenCode target directory. T
 - `codebase-design`
 - `code-review`
 
-The target is selected by the installer (currently `.agents/skills/`). Do not fabricate `.agents/`, add empty files, or create per-agent rule/instruction shims. Refresh this selection with `bunx skills update`, review the generated diff, and commit the changed generated files exactly as upstream produced them.
+`skills-lock.json` records each source path and generated-file hash. Do not
+fabricate `.agents/`, add empty files, or create per-agent rule/instruction
+shims. Refresh the selected files with `bunx skills update`, review the
+generated diff and lockfile, and commit changed generated files exactly as
+upstream produced them.
+
+The repository's `agents:setup` helper reports the selected files; it does not
+silently install a second copy of these skills.
 
 ## Tier 4: Superpowers plugin
 
@@ -30,11 +39,16 @@ The target is selected by the installer (currently `.agents/skills/`). Do not fa
 
 ### Setup and update commands
 
-Run setup once when configuring a checkout:
+Run setup once from the repository root when configuring a checkout:
 
 ```bash
 bun run agents:setup
 ```
+
+The setup helper runs supported noninteractive commands only when their
+executable is available, prints interactive prompts for harnesses that own
+their plugin UI, and reports the committed OpenCode skill files. A missing
+optional executable is skipped rather than treated as an installation.
 
 Run updates manually when you want to review upstream changes:
 
@@ -42,7 +56,11 @@ Run updates manually when you want to review upstream changes:
 bun run agents:update
 ```
 
-Both helpers accept `--dry-run` to print commands without executing them. Updates are manual and review-driven; there is no CI cron or automatic updater.
+The update helper runs `bunx skills update` first, then updates available
+Superpowers integrations. Review the generated skill and lockfile diff before
+committing it. Both helpers accept `--dry-run` to print commands without
+executing them. Updates are manual and review-driven; there is no CI cron or
+automatic updater.
 
 ### Supported harness behavior
 
