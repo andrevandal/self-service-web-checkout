@@ -37,22 +37,34 @@ alternatives, not a stack to run simultaneously.
 
 ## Migration boundary
 
-Compose startup does not run schema migrations. The image starts the built
-server with `bun run start`; migration is a separate release operation and
-must complete before app replicas receive traffic. Run it from a migration
-runner that can reach the selected database, using the same URL and token:
+Compose startup does not run schema migrations. The app runtime image starts
+the built server with `bun run start`; it is not a migration runner: the
+production install omits development dependencies, and the image copies
+`dist` without the committed `drizzle/` migrations. Run migrations as a
+separate release operation before app replicas receive traffic.
+
+For the file-mode and internal `sqld` topologies, run the migration command
+from a separate runner that can reach the selected database:
 
 ```bash
-DATABASE_URL=... DATABASE_AUTH_TOKEN=... bun run db:migrate
+DATABASE_URL=... bun run db:migrate
 ```
 
-For the internal `sqld` topologies, the migration runner must have network
-access to the compose `backend` network; these compose files do not expose
-the database service to the host. For the Turso topology, run the command
-from any environment with the provisioned Turso credentials. The file-mode
-topology persists its database in the `local-data` volume at `/app/data`, so
-the migration runner must target that database rather than assuming the
-checkout's `.data` path is the mounted volume.
+For the internal `sqld` topologies, that runner must have access to the
+compose `backend` network (for example, as a temporary compose service);
+these compose files do not expose the database service to the host. The
+file-mode topology persists its database in the `local-data` volume at
+`/app/data`, so mount or otherwise target that database rather than assuming
+the checkout's `.data` path is the mounted volume.
+
+The current `drizzle.config.ts` uses drizzle-kit’s `sqlite` dialect. Its URL
+setting can target the file-mode and internal `sqld` databases, but this
+sqlite-dialect migration configuration does not forward
+`DATABASE_AUTH_TOKEN` as Turso authentication. Do not use
+`DATABASE_AUTH_TOKEN=... bun run db:migrate` as the Turso migration
+procedure. Instead, apply the committed `drizzle/` migrations with a
+separate migration runner or tool that explicitly supports Turso/libSQL
+authentication, from an environment provisioned with the Turso credentials.
 
 These files intentionally do not provide migration orchestration, rollback,
 or edge routing. Plan those operations in the deployment environment.
