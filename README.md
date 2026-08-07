@@ -5,31 +5,25 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Release](https://img.shields.io/github/v/release/andrevandal/self-service-web-checkout)](https://github.com/andrevandal/self-service-web-checkout/releases)
 
-## Concept
+## Purpose
 
-This repository currently provides scaffold proof only: a TanStack Start page and
-a `/api/health` endpoint that checks database connectivity through
-Drizzle/libSQL. It does **not** implement product checkout behavior yet.
+Self-service web checkout is a showcase project for a frictionless kiosk
+checkout experience. It uses Bun, TanStack Start, Drizzle/libSQL, and
+Playwright to explore a reliable, maintainable web foundation for that concept.
 
-## Tech stack
+## Kiosk scenario
 
-- Bun and TypeScript
-- TanStack Start, React, Vite, and Tailwind CSS
-- TanStack Devtools, TanStack Query, shadcn/ui, PostHog, and Nitro
-- Drizzle ORM and libSQL
-- Valibot and `@vite-env/core`
-- oxlint and oxfmt
-- Playwright
-- Docker Compose
-- GitHub Actions
+A customer approaches a kiosk and independently completes a checkout with a
+clear, low-friction interface. The project uses that scenario to guide product
+and technical decisions without presenting unimplemented checkout capabilities
+as available today.
 
-## Prerequisites
+## First-time setup
 
-- Bun, at version pinned by `.prototools`
-- Docker and Docker Compose for container validation or deployment
+Prerequisites:
+
+- Bun, at the version pinned by `.prototools`
 - Chromium for browser end-to-end tests: `bunx playwright install chromium`
-
-## Quick start
 
 ```bash
 bun install
@@ -38,92 +32,33 @@ bun run db:migrate
 bun run dev
 ```
 
-`.env` is optional: safe defaults use `DATABASE_URL=file:./.data/local.db` and
-`PORT=3000`. Open <http://localhost:3000/> or run:
+`.env` is optional: defaults use `DATABASE_URL=file:./.data/local.db` and
+`PORT=3000`. Open <http://localhost:3000/> or verify the running app:
 
 ```bash
 curl http://localhost:3000/api/health
 ```
 
-The migration is required once before `bun run db:seed` can persist a sample ping; `/api/health` itself needs no migration, only a reachable database.
-
 ## Development
 
-- `bun run dev` — start Vite development server on port 3000.
-- `bun run build` — produce client and server production artifacts.
-- `bun run start` — run the built server from `.output/server/index.mjs` (Nitro-built).
-- `bun run db:generate` — generate Drizzle migrations from the schema.
-- `bun run db:migrate` — apply migrations to the configured database.
-- `bun run db:seed` — add one sample ping after migrations have run.
-- `bun run agents:setup` — configure supported agent harnesses or print their interactive instructions.
-- `bun run agents:update` — update supported agent tooling and vendored skills.
-
-## Database
-
-`DATABASE_URL` accepts `file:`, `libsql:`, `http:`, and `https:` URLs. Unset
-or empty values default to `file:./.data/local.db`; `.data/` is ignored.
-
-Run `bun run db:migrate` before `bun run db:seed`. `/api/health` only needs a
-reachable database, not a migrated `pings` table, and the seed command
-intentionally does not run migrations itself.
-
-## Testing and quality checks
-
 ```bash
+# Database
+bun run db:generate
+bun run db:migrate
+bun run db:seed
+
+# Quality
 bun run lint
 bun run format
 bun run typecheck
 bun run test
-bun run test:e2e:api
-bun run test:e2e:browser
+bun run test:e2e
+
+# Production build
 bun run build
+bun run start
 ```
 
-- `bun run test` runs unit tests under `src/` and `scripts/`.
-- `bun run test:e2e:api` builds, migrates, and owns a separate HTTP server.
-- `bun run test:e2e:browser` builds and drives Chromium through Playwright.
-- `bun run test:e2e` runs both end-to-end layers sequentially.
-
-Lefthook runs staged-file linting/formatting in `pre-commit`, Conventional
-Commit validation in `commit-msg`, and affected colocated tests in `pre-push`.
-
-## Deployment topologies
-
-| Compose file | Use case |
-| --- | --- |
-| `docker-compose.yml` | One app with a named local libSQL file volume. |
-| `docker-compose.sqld.yml` | One app and an internal healthchecked sqld database. |
-
-See [deployment guidance](docs/deployment.md) for availability boundaries,
-required secrets, and migration-runner constraints. No topology supplies a
-reverse proxy or migration-on-boot orchestration.
-
-## Agent tooling
-
-[Agent tooling guidance](docs/agent-tooling.md) defines the four tiers,
-vendored OpenCode skills, setup/update behavior, and harness-specific manual
-steps. OMP is the recommended harness.
-
-```bash
-bun run agents:setup
-bun run agents:update
-```
-
-## CI and releases
-
-GitHub Actions runs lint, format, typecheck, unit coverage, API/browser e2e,
-build, and Docker build checks for pull requests targeting `main` and pushes to
-`main`. Configure the repository `CODECOV_TOKEN` Actions secret before relying
-on Codecov uploads.
-
-Use Conventional Commits for commit and pull-request titles. On Conventional
-Commits merged to `main`, release-please opens or updates a Release PR and owns
-`CHANGELOG.md` generation.
-
-## Documentation
-
-- [Scaffold design](docs/specs/2026-08-06-boilerplate-design.md)
-- [Implementation plan](docs/plans/2026-08-06-boilerplate-plan.md)
-- [Deployment guidance](docs/deployment.md)
-- [Agent tooling guidance](docs/agent-tooling.md)
-- [MIT license](LICENSE.md)
+`bun run test:e2e` migrates the database, builds the app, and runs the
+Playwright browser test. See [docs/](docs/) for deployment and contributor
+guidance.
