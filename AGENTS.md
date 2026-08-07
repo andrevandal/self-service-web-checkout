@@ -8,7 +8,7 @@ Run the checks relevant to the change before committing:
 bun run lint
 bun run format
 bun run typecheck
-bun test
+bun run test
 bun run build
 ```
 
