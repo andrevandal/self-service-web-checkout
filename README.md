@@ -83,8 +83,8 @@ bun run build
 - `bun run test:e2e:browser` builds and drives Chromium through Playwright.
 - `bun run test:e2e` runs both end-to-end layers sequentially.
 
-Lefthook runs staged-file linting/formatting, Conventional Commit validation,
-and affected colocated tests before push.
+Lefthook runs staged-file linting/formatting in `pre-commit`, Conventional
+Commit validation in `commit-msg`, and affected colocated tests in `pre-push`.
 
 ## Deployment topologies
 
