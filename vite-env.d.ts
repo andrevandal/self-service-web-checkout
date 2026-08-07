@@ -6,18 +6,22 @@
 // Do not edit manually — re-generated on every dev server start and build
 // Tip: for richer types, use defineEnv() with Zod instead of defineStandardEnv()
 
-declare module "virtual:env/client" {
-  const env: {};
-  export { env };
-  export default env;
+declare module 'virtual:env/client' {
+  const env: {
+    readonly VITE_POSTHOG_KEY: string
+    readonly VITE_POSTHOG_HOST: string
+  }
+  export { env }
+  export default env
 }
 
-declare module "virtual:env/server" {
+declare module 'virtual:env/server' {
   const env: {
-    readonly DATABASE_URL: string;
-    readonly DATABASE_AUTH_TOKEN: string;
-    readonly PORT: string;
-  };
-  export { env };
-  export default env;
+    readonly DATABASE_URL: string
+    readonly PORT: string
+    readonly VITE_POSTHOG_KEY: string
+    readonly VITE_POSTHOG_HOST: string
+  }
+  export { env }
+  export default env
 }

@@ -4,9 +4,11 @@ const serverEnvFields = {
   DATABASE_URL: v.pipe(
     v.optional(v.string(), "file:./.data/local.db"),
     v.transform((value) => value || "file:./.data/local.db"),
-    v.regex(/^(file:|libsql:)/, "DATABASE_URL must start with file: or libsql:"),
+    v.regex(
+      /^(file:|libsql:|https?:)/,
+      "DATABASE_URL must start with file:, libsql:, http:, or https:",
+    ),
   ),
-  DATABASE_AUTH_TOKEN: v.optional(v.string()),
   PORT: v.pipe(
     v.optional(v.union([v.number(), v.string()]), 3000),
     v.transform((value) => (typeof value === "string" ? Number(value) : value)),
@@ -17,8 +19,13 @@ const serverEnvFields = {
   ),
 };
 
+const clientEnvFields = {
+  VITE_POSTHOG_KEY: v.optional(v.string()),
+  VITE_POSTHOG_HOST: v.optional(v.string()),
+};
+
 export const serverEnvSchema = v.object(serverEnvFields);
 
 export const parseServerEnv = (input: unknown) => v.parse(serverEnvSchema, input);
 
-export default defineStandardEnv({ server: serverEnvFields });
+export default defineStandardEnv({ server: serverEnvFields, client: clientEnvFields });
