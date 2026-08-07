@@ -64,8 +64,21 @@ or UI is defined here — see "Non-goals."
   `typecheck` runs `tsc --noEmit` — Vite/TanStack Start's build does not
   fail on type errors by default, so this is a separate, explicit gate.
   The Vite-native runtime commands are `vite dev`, `vite build`, and
-  `bun dist/server/server.js`; the latter is the production server emitted
-  by the configured TanStack Start Vite plugin.
+  `bun .output/server/index.mjs`; the latter is the Nitro-built
+  production server, a self-contained bundle whose non-bundleable native
+  dependencies (e.g. libSQL's platform binding) are vendored into
+  `.output/server/node_modules` (see
+  [Application framework](#application-framework)), replacing the
+  non-Nitro TanStack Start Vite plugin's own `dist/server/server.js`
+  output.
+- **`scripts/*.ts`** entrypoints (`seed.ts`, `affected-tests.ts`,
+  `setup-agent-plugins.ts`, `update-agent-plugins.ts`) parse their CLI
+  arguments with **yargs** (`yargs(hideBin(process.argv))`), never raw
+  `process.argv`/`Bun.argv` string matching — flags like `--dry-run` and
+  positional push-file lists get a validated, typed option shape instead
+  of ad hoc `.includes()`/`.slice(2)` checks. `bun run typecheck`'s
+  repo-wide `tsc --noEmit` already covers `scripts/`, since
+  `tsconfig.json`'s `include` is `**/*.ts`, not `src/**` alone.
 
 ## Editor & repo hygiene
 
@@ -84,21 +97,84 @@ or UI is defined here — see "Non-goals."
   routing serves both UI pages and API endpoints as TanStack Start server
   routes, sharing types end-to-end. Single deployable unit, no separate
   backend service.
+- **Route contracts**: `GET /` renders the fixed heading
+  `Self-service web checkout`. `GET /api/health` is a pure
+  database-connectivity check with no side effects — nothing is written on
+  every poll: it runs `db.run(sql\`SELECT 1\`)` through
+  `src/lib/example.ts`'s `checkHealth(db)` and returns
+  `{ status: "ok", uptime: number, timestamp: string }` at `200` when
+  that succeeds, or `{ status: "error", message: "Database connection
+  failed" }` at `503` when it throws. This deliberately does **not** call
+  `recordPing()` — writing a `pings` row on every health poll would be
+  wasteful; `recordPing()`'s persistence proof lives in `scripts/seed.ts`
+  and its own unit test instead (see [Data layer](#data-layer)).
+- **Tailwind CSS and TanStack Devtools** ship as defaults in the current
+  TanStack Start `react-start` template and are retained rather than
+  stripped: `src/styles.css` (`@import "tailwindcss";` plus a minimal
+  reset) backs the hello-world heading's utility classes, and
+  `src/routes/__root.tsx` mounts a `TanStackDevtools` panel with the
+  router-devtools plugin. Neither is a deliberately built design system
+  or observability layer — see [Non-goals](#non-goals).
+- **Four `@tanstack/cli` add-ons are selected at scaffold time**:
+  `tanstack-query`, `shadcn`, `posthog`, and `nitro`
+  (`--add-ons tanstack-query,shadcn,posthog,nitro` on Task 1's `create`
+  command). Each wires its own generated scaffolding, kept as-is like the
+  template defaults above — none of it is a deliberately built product
+  feature:
+  - **TanStack Query**: `@tanstack/react-query`,
+    `@tanstack/react-query-devtools`, `@tanstack/react-router-ssr-query`.
+    `src/integrations/tanstack-query/root-provider.tsx` exports
+    `getContext()` (a `QueryClient` factory) consumed by
+    `src/router.tsx`'s `getRouter()`, which also calls
+    `setupRouterSsrQueryIntegration()`; `devtools.tsx` registers the query
+    devtools panel alongside the router-devtools panel in
+    `TanStackDevtools`.
+  - **shadcn/ui**: `components.json` (`new-york` style, `zinc` base
+    color, CSS variables, aliased to this repo's existing `#/*` import
+    prefix) plus `src/lib/utils.ts`'s `cn()` helper (`clsx` +
+    `tailwind-merge`) and the `lucide-react`, `class-variance-authority`,
+    `tw-animate-css` dependencies it pulls in. No components are added —
+    `bunx shadcn@latest add <component>` is a later, per-need step — this
+    only wires the config and utility a real UI would build on.
+  - **PostHog**: `posthog-js`, `@posthog/react`.
+    `src/integrations/posthog/provider.tsx` initializes the client SDK
+    from `virtual:env/client`'s `VITE_POSTHOG_KEY`/`VITE_POSTHOG_HOST`
+    and no-ops when the key is unset; it wraps the app in `__root.tsx`.
+    See [Typed environment](#typed-environment-srcenvts-and-srcenvserverts)
+    for why this scaffold routes it through `@vite-env/core` instead of
+    raw `import.meta.env`.
+  - **Nitro**: `nitro`'s Vite plugin (`nitro/vite`) replaces TanStack
+    Start's own bundling of the production server; `bun run build` now
+    emits a self-contained `.output/server/index.mjs` instead of
+    `dist/server/server.js` (see
+    [Runtime & tooling baseline](#runtime--tooling-baseline)). No
+    deploy-provider preset is selected — `Dockerfile` and the compose
+    topologies below remain the only supported deployment path (see
+    [Non-goals](#non-goals)).
 - **Structure** (flat TanStack Start convention):
 
   ```
   src/
     routes/
+      __root.tsx              # template-default root shell + TanStack/Query Devtools panel + PostHog provider
       index.tsx              # hello-world landing page (scaffold-only)
-      api/health.ts           # example API route (scaffold-only)
+      api/health.ts           # DB-connectivity liveness check (scaffold-only)
+    integrations/
+      tanstack-query/
+        root-provider.tsx      # QueryClient factory consumed by src/router.tsx
+        devtools.tsx            # query devtools panel entry
+      posthog/
+        provider.tsx             # client-side PostHog SDK init + provider
     lib/
-      example.ts               # example domain-shaped function, DB-backed
+      example.ts               # recordPing (DB-backed) + checkHealth (health route)
+      utils.ts                   # shadcn/ui `cn()` helper (clsx + tailwind-merge)
     db/
       schema.ts                # one trivial example table (proves Drizzle wiring)
       client.ts                # virtual-import-free Drizzle factory
       client.server.ts         # server-only application DB singleton
     env.ts                     # valibot schema and testable parser
-    env.server.ts              # server-only virtual-env adapter with typed output
+    env.server.ts              # server-only vite-env/core loadEnv() adapter, typed output
+    styles.css                  # template-default Tailwind CSS entry (`@import "tailwindcss";`) + shadcn CSS variables
   scripts/
     seed.ts                    # example seed script for the example table
     setup-agent-plugins.ts     # bun run agents:setup
@@ -109,20 +185,22 @@ or UI is defined here — see "Non-goals."
     browser/                   # Playwright browser smoke test
   drizzle/                     # generated migrations
   drizzle.config.ts
+  components.json              # shadcn/ui config (aliases, style, base color)
   .env                         # local copy of .env.example, ignored
   .env.example
   lefthook.yml
   Dockerfile
   ```
 
-  **`Dockerfile`** is a real deliverable, not an afterthought — it's what
-  all four compose files and the CI build-check step reference. This spec
-  commits to: `oven/bun` base image, non-root user, listens on `PORT`
-  (matching `src/env.ts`). It deliberately does **not** commit to a
-  migration-on-boot strategy (who runs `db:migrate` in a container, and
-  how concurrent replicas under `--scale app=N` avoid racing the same
-  migration) — that's real design work, explicitly deferred; see
-  [Non-goals](#non-goals).
+  **`Dockerfile`** is a real deliverable, not an afterthought — both compose
+  files and the CI build-check step reference it. This spec commits to:
+  `oven/bun` base image, non-root user, listens on `PORT` (matching
+  `src/env.ts`). Its runtime stage copies `package.json` and the built
+  `.output/` directory only — no second `bun install`, since Nitro's
+  `.output/server` bundle already vendors its own non-bundleable native
+  dependencies. It deliberately does **not** commit to a migration-on-boot
+  strategy; migration orchestration is real deployment design, explicitly
+  deferred; see [Non-goals](#non-goals).
 
   Server routes call `src/lib/*` functions, which call `src/db/*`. Nothing
   here encodes real product/domain concepts — `index.tsx`, `health.ts`,
@@ -134,20 +212,22 @@ or UI is defined here — see "Non-goals."
 
 - **Drizzle ORM** with the `drizzle-orm/libsql` driver, `drizzle-kit` for
   schema/migrations. `drizzle-kit`'s `dialect: "sqlite"` credentials type
-  accepts only `url`, not an auth token — `dbCredentials` in
-  `drizzle.config.ts` therefore carries `DATABASE_URL` alone; the
-  application factory's separate `createDatabase(url, authToken?)` still
-  accepts a token for runtime libSQL/Turso connections (see
-  [Deployment topologies](#deployment-topologies-docker-compose) for the
-  Turso migration-runner boundary this implies).
+  accepts a database URL, so `drizzle.config.ts` uses `DATABASE_URL` alone.
+  The current `@tanstack/cli` "drizzle" add-on defaults to the
+  `better-sqlite3` native driver instead; this scaffold keeps `libsql`
+  deliberately, since it's the only one of the two that also connects to a
+  remote libSQL/sqld server without a driver swap (see
+  [Deployment topologies](#deployment-topologies-docker-compose)).
 - **Local dev**: libSQL's embedded **file mode**, defaulted in `env.ts` to
   `file:./.data/local.db` when unset or empty — no `.env` required to start.
   `.data/` is gitignored. No server process or Docker required. `bun run dev`
   is the dev loop; one `bun run db:migrate` (once, to create `pings`) is a
   prerequisite, not part of the "no setup" claim.
 - **Example schema**: a single `pings` table (`id`, `createdAt`) — exists
-  purely so the health route and example unit/e2e tests can prove a real
-  read/write round-trips through Drizzle + libSQL.
+  purely so `scripts/seed.ts` and `recordPing()`'s own unit test can
+  prove a real read/write round-trip through Drizzle + libSQL. Decoupled
+  from `/api/health`, which never writes to it (see
+  [Application framework](#application-framework)).
 - **Deployment**: Docker-based (see [Deployment topologies](#deployment-topologies-docker-compose)).
   No CI/CD automation triggers deployment — an external service clones the
   repo, builds, and runs it via one of the compose files. This spec ships
@@ -157,108 +237,142 @@ or UI is defined here — see "Non-goals."
 ## Typed environment (`src/env.ts` and `src/env.server.ts`)
 
 - **[`@vite-env/core`](https://github.com/pyyupsk/vite-env)** (`vite-env`)
-  is the env layer: `defineStandardEnv()` with **valibot** schemas (the
-  library is Standard-Schema-based, so valibot — already the project's
-  choice — plugs in directly, no Zod dependency needed), exposed through
-  its typed virtual modules (`virtual:env/server`, `virtual:env/client`)
-  plus its Vite plugin for build-time validation and build-time leak
-  detection (fails the build if a server value shows up in a client
-  chunk — a stronger guarantee than a naming convention).
-- **Schema**: everything this scaffold needs is server-only for now —
-  `DATABASE_URL` (string, defaults to `file:./.data/local.db` when unset or
-  empty, so local dev and CI work with zero configuration),
-  `DATABASE_AUTH_TOKEN` (optional; required in practice only for the
-  `turso-ha` topology — a missing token there surfaces as a libSQL auth error
-  at connection time, not a startup-time env error), and `PORT` (a string or
-  number input coerced to a valid port number, defaults to `3000`). No
-  `client` block is defined because nothing in this scaffold is exposed to the
-  browser.
-- **Naming caveat**: `@vite-env/core` hardcodes its client-var prefix to
-  `VITE_` (enforced at `defineEnv`/`defineStandardEnv` call time, not
-  configurable) — it does **not** support a `PUBLIC_` prefix. Since this
-  scaffold has no client vars, this doesn't bite yet; if/when a
-  browser-exposed var is added, it must be named `VITE_*`, not
-  `PUBLIC_*`, or a different library is needed. Flagging this now instead
-  of silently asserting a prefix the library doesn't offer.
-- **[`vite-env-only`](https://github.com/pcattori/vite-env-only)** stays
-  in the plugin chain alongside `@vite-env/core`, not instead of it: it
-  covers the *broader* server-only module boundary (all of `src/db/*`,
-  not just the env schema itself), so route → lib → db imports can't drag
-  server-only code into the client bundle even where `@vite-env/core`'s
-  env-specific leak detection doesn't look.
-- Validated once (build-time via the Vite plugin, and at module import via
-  the virtual modules); throws a clear error only for a malformed, nonempty
-  `DATABASE_URL` (anything not prefixed `file:` or `libsql:`). An empty
-  value normalizes to the safe local default.
-- No repository-owned code accesses raw `process.env`. `src/env.server.ts`
-  alone imports the raw `virtual:env/server` values, parses them through
-  `src/env.ts`, and exports the application-level typed `serverEnv` with
-  `DATABASE_URL: string`, `DATABASE_AUTH_TOKEN?: string`, and `PORT: number`.
-  This adapter avoids `@vite-env/core`'s generated raw declaration, which
-  represents Standard-Schema values as strings, becoming the application
-  contract. Vite-external scripts use `@vite-env/core`'s standalone `loadEnv()`
-  runtime loader instead. The API e2e launcher passes only its generated
-  `PORT` through `Bun.spawn`'s explicit environment map.
-- `.env.example` is generated via `bunx vite-env generate` from the
-  schema, then documents the safe `DATABASE_URL=file:./.data/local.db` and
-  `PORT=3000` defaults; it is committed. Scaffold setup copies it to `.env`,
-  which is gitignored. A clean checkout still runs without `.env` because
-  the schema provides those same defaults.
+  is this scaffold's **single source of truth for every env var**,
+  server and client alike: `defineStandardEnv()` with **valibot** schemas
+  (the library is Standard-Schema-based, so valibot — already the
+  project's choice — plugs in directly, no Zod dependency needed).
+  `src/env.ts` exports the shared server-field definitions three ways:
+  `serverEnvSchema` (a plain `v.object()`, no Vite dependency),
+  `parseServerEnv` (its parser, importable and testable under plain
+  `bun test` with arbitrary fixture objects), and a
+  `defineStandardEnv({ server: serverEnvFields, client: clientEnvFields })`
+  default export that registers both blocks with the Vite plugin.
+- **Schema**: server — `DATABASE_URL` (string, defaults to
+  `file:./.data/local.db` when unset or empty, so local dev and CI work
+  with zero configuration) and `PORT` (a string or number input coerced
+  to a valid port number, defaults to `3000`). Client — the `posthog`
+  add-on's two vars, both optional strings with no default:
+  `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST`. `@vite-env/core` hardcodes
+  its client-var prefix to `VITE_` (confirmed unconfigurable in its
+  source, checked exhaustively — both its Zod and Standard-Schema
+  validation paths throw if a client key isn't `VITE_`-prefixed, and
+  there is no plugin option, config field, or env var that changes it);
+  this scaffold's own Vite setup already defaults to that same prefix, so
+  there's no conflict to work around — `PUBLIC_POSTHOG_KEY` was
+  considered and dropped in favor of matching both the library's
+  constraint and the `posthog` add-on's own generated convention.
+- **`ViteEnv({ configFile: "./src/env.ts" })`** stays registered in
+  `vite.config.ts`: it validates the full schema (server and client) on
+  `buildStart` (an early, fail-fast gate) and runs leak detection against
+  the built client chunks, guarding server values from ever appearing in
+  browser-shipped code — both guarantees are independent of which module
+  actually resolves `serverEnv` at runtime (below), so keeping the plugin
+  registered keeps them.
+- **`src/env.server.ts` uses the library's standalone runtime loader**
+  (`@vite-env/core/load`'s `loadEnv()`) instead of importing the
+  generated `virtual:env/server` module:
+  `export const serverEnv = (await loadEnv(config)).server;`, where
+  `config` is `src/env.ts`'s own `defineStandardEnv(...)` default export
+  — the same schema object the Vite plugin uses. This is a real
+  distinction, confirmed by reading the installed package's source
+  (`node_modules/@vite-env/core/dist/load.mjs`): the Vite plugin's
+  virtual modules resolve to a `Object.freeze(JSON.stringify(data))`
+  literal computed once at `vite build` time, but `loadEnv()` is a plain
+  async function that reads `vite`'s own `loadEnv()` (`.env` files) merged
+  with live `process.env` (`process.env` wins, matching the library's own
+  documented merge priority) *at call time* — so calling it at
+  `env.server.ts`'s module-import time resolves fresh in whatever process
+  is actually running (the Vite dev server, the built
+  `.output/server/index.mjs` server, or a Bun script), not a value frozen
+  at an earlier build step. Only *server*-boundary code needs this
+  runtime-freshness fix — client-shipped values are always inlined at
+  build time in any Vite app, `virtual:env/client` included, so this
+  doesn't apply to the `posthog` vars below.
+- **Fixes a real Docker deployment bug**: an earlier revision of this
+  scaffold had `src/env.server.ts` import `virtual:env/server` directly.
+  Because that module is the frozen build-time literal described above, a
+  single built image could never honor a different `DATABASE_URL`
+  supplied at container start — silently breaking the entire premise of
+  [Deployment topologies](#deployment-topologies-docker-compose): the
+  same image is meant to run against `file:/app/data/local.db` in
+  `docker-compose.yml` and `libsql://db:8080` in
+  `docker-compose.sqld.yml`, picking a different persisted-DB location or
+  remote target per container's environment, not per build. Switching to
+  the standalone `loadEnv()` loader — while keeping `@vite-env/core` and
+  its Vite plugin for everything else — closes that gap: the same
+  `.output/` build now genuinely honors whichever `DATABASE_URL` its
+  container is started with. `drizzle.config.ts` and `scripts/seed.ts`
+  use the identical `loadEnv(config)` call (matching the library's own
+  documented "standalone runtime loader" example, which uses a
+  `scripts/seed.ts` as its illustration) instead of calling `vite`'s
+  `loadEnv()` directly, so there is exactly one env-resolution pattern
+  across every Bun-executed entry point.
+- **`vite-env-only`** stays in the Vite plugin chain alongside
+  `@vite-env/core`, not instead of it: it covers the *broader*
+  server-only module boundary (all of `src/db/*`, not just the env
+  schema itself), so route → lib → db imports can't drag server-only code
+  into the client bundle even where `@vite-env/core`'s env-specific leak
+  detection doesn't look.
+- **PostHog reads through `virtual:env/client`, not raw
+  `import.meta.env`**: `src/integrations/posthog/provider.tsx` imports
+  `{ env } from "virtual:env/client"` and reads `env.VITE_POSTHOG_KEY`/
+  `env.VITE_POSTHOG_HOST` — this is the one generated add-on file this
+  scaffold deliberately edits away from its stock form (which reads
+  `import.meta.env.VITE_POSTHOG_KEY` directly), specifically so
+  `@vite-env/core` is the *only* env access point in the codebase, with
+  no parallel raw-`import.meta.env` path left unvalidated. Both vars stay
+  optional with no default; the provider still no-ops gracefully when the
+  key is unset.
+- The API e2e launcher passes only its generated `PORT` through
+  `Bun.spawn`'s explicit environment map, exercising the same
+  `loadEnv()`-driven resolution the real server uses.
+- `.env.example` is generated via `bunx vite-env generate` from the full
+  schema — server and client together — documenting the safe
+  `DATABASE_URL=file:./.data/local.db` and `PORT=3000` defaults plus
+  commented-out, empty-by-default `VITE_POSTHOG_KEY=`/
+  `VITE_POSTHOG_HOST=` entries in one pass, with nothing added by hand;
+  it is committed. Scaffold setup copies it to `.env`, which is
+  gitignored. A clean checkout still runs without `.env` because the
+  schema provides those same defaults, and PostHog stays disabled (its
+  provider no-ops) until a real key is set.
 
 ## Deployment topologies (Docker Compose)
 
-Four compose files ship in the repo, covering a progression from
-simplest/single-instance to app-tier high availability. None are wired to
-CI/CD — they're consumed by an external clone-build-run service (e.g.
-Coolify), which is expected to own routing/load-balancing across each
-service's exposed port (no reverse proxy container is included here).
+Two compose files ship in the repo, both with one application process.
+Neither is wired to CI/CD — an external clone-build-run service (e.g.
+Coolify) consumes them. No reverse proxy container or migration
+orchestration is included.
 
 1. **`docker-compose.yml`** — single `app` service, embedded file-mode
-   libSQL on a named volume. Simplest option, no HA, matches the local dev
-   DB code path exactly (same `file:` URL style, different volume).
+   libSQL on a named volume. Simplest option, matches the local dev DB code
+   path exactly (same `file:` URL style, different volume).
 
 2. **`docker-compose.sqld.yml`** — `app` + `db` (sqld server) service. `db`
    is on an internal-only Docker network (no host port mapping) with a
    healthcheck; `app` declares `depends_on: db: condition: service_healthy`.
-   Single app instance, decoupled DB.
+   One app instance, decoupled database service.
 
-3. **`docker-compose.sqld-ha.yml`** — same as (2), but `app` is scalable to
-   N replicas (via `docker compose up --scale app=N`, no hardcoded replica
-   count in the file), all sharing the same internal, healthchecked `db`
-   (sqld) service. `app`'s `ports:` entry exposes the container port
-   without a fixed host port (e.g. `"PORT"` alone, letting Docker assign
-   an ephemeral host port per replica) — a static host port mapping would
-   collide the moment `--scale app=2` runs. The external platform is
-   expected to discover the assigned ports for its own load-balancing.
-   **This is app-tier HA only** — the single `db` (sqld) container is a
-   disclosed single point of failure: one `sqld` crash takes down every
-   `app` replica. True DB-tier HA is what `docker-compose.turso-ha.yml`
-   (below) is for; naming this file `sqld-ha` describes what's scaled
-   (the app), not a claim that the database is redundant.
-
-4. **`docker-compose.turso-ha.yml`** — `app` service only, scalable the same
-   way as (3), no local `db` container. Each app replica connects to a
-   managed **Turso Cloud** database via `DATABASE_URL` +
-   `DATABASE_AUTH_TOKEN`, relying on Turso's managed replication for DB-side
-   HA.
-
-A short `docs/deployment.md` explains when to use which file — deferred to
+A short `docs/deployment.md` explains when to use each file — deferred to
 implementation.
 
 ## Testing
 
-- **Unit tests**: `bun test` scoped to `src/**/*.test.ts` (excludes `e2e/`
-  so the two suites never collide — `bun test`'s default glob is
-  repo-wide), colocated next to source (e.g. `src/lib/example.test.ts`).
-  Run against an ephemeral in-memory/file libSQL DB — same in CI and
-  locally, no Docker dependency.
+- **Unit tests**: `bun test src scripts` scopes unit tests to
+  `src/**/*.test.ts` and `scripts/**/*.test.ts` (excluding `e2e/`, whose
+  suites have dedicated commands). Tests are colocated with their source
+  (e.g. `src/lib/example.test.ts`) and run against an ephemeral in-memory/file
+  libSQL DB — same in CI and locally, with no Docker dependency.
 - **E2E tests, two layers** — API-level and browser-level, not one
   instead of the other:
   - **`e2e/api/`**: no browser. `bun:test` directly — after building,
     `Bun.spawn` boots the app (`bun run start`) as a child process on an
     ephemeral port, polls until it accepts connections, then plain
-    `fetch()` calls assert status/body on `/api/health`, and the child
-    process is killed in an `afterAll`. No browser binary, no download
+    `fetch()` asserts a `200` with
+    `{ status: "ok", uptime: number, timestamp: string }` on
+    `/api/health`, and the child process is killed in an `afterAll`. The
+    `503`/DB-failure path is a `src/lib/example.test.ts` unit-test
+    concern (mocked `db`), not this black-box layer's — the e2e app
+    always has a reachable database. No browser binary, no download
     step. This layer covers everything that doesn't need a real
     DOM/rendering pipeline.
   - **`e2e/browser/`**: [Playwright](https://playwright.dev)
@@ -278,8 +392,36 @@ implementation.
 
 - TanStack Start v1 uses its Vite-native plugin, not legacy Vinxi. The
   scaffold scripts are `vite dev`, `vite build`, and
-  `bun dist/server/server.js`; the production artifact was built and served
-  successfully with this configuration.
+  `bun .output/server/index.mjs` (Nitro-built, see
+  [Application framework](#application-framework)); the production
+  artifact was built and served successfully with this configuration.
+- The current TanStack scaffolding CLI is `@tanstack/cli`'s `create`
+  subcommand (e.g. `bunx @tanstack/cli@latest create`); it supersedes the
+  older `create-tanstack-app` package name Task 1 previously invoked. Its
+  `react-start` template ships Tailwind CSS and TanStack Devtools by
+  default now (see [Application framework](#application-framework)). This
+  scaffold selects four of the CLI's optional add-ons — `tanstack-query`,
+  `shadcn`, `posthog`, `nitro` — and declines the rest (`drizzle`,
+  `form`); see [Application framework](#application-framework) for what
+  each selected add-on wires and [Non-goals](#non-goals) for what stays
+  declined and why.
+- A Docker verification pass showed `docker-compose.yml`'s
+  container-supplied `DATABASE_URL` had no effect at runtime — traced to
+  `@vite-env/core`'s `virtual:env/server` module baking its value into a
+  frozen build-time literal (confirmed in the installed package's
+  source). The fix keeps `@vite-env/core` — `src/env.server.ts` now
+  resolves `serverEnv` via the library's own standalone
+  `@vite-env/core/load` runtime loader instead of importing
+  `virtual:env/server`; see
+  [Typed environment](#typed-environment-srcenvts-and-srcenvserverts).
+  A `PUBLIC_` client-var prefix was considered (to route around
+  `@vite-env/core`'s hardcoded `VITE_`) and dropped: this scaffold's own
+  Vite config already defaults to `VITE_`, so there was no conflict to
+  route around, and using it kept `@vite-env/core` as the single source
+  of truth for every env var — server and client — instead of splitting
+  client vars onto a second, unvalidated `import.meta.env` path.
+  `vite-env-only` and `ViteEnv`'s build-time validation/leak detection
+  remain unaffected — neither was the source of the bug.
 - The API e2e test's startup lifecycle is complete when written. Its initial
   execution may pass once earlier tasks provide a working built application;
   do not manufacture a failure solely to satisfy a red-phase checkpoint.
@@ -289,11 +431,11 @@ implementation.
 
 ## Coverage & badges
 
-- **Every PR and push to `main`**: `checks.yml` runs for all
-  `pull_request` events and only `push` events targeting `main`, preventing
-  duplicate checks for feature-branch PR updates. It runs
-  `bun test src --coverage --coverage-reporter=lcov` (scoped to unit tests
-  only), which both prints the summary and writes `coverage/lcov.info`, then
+- **Every PR targeting `main` and every push to `main`**: `checks.yml`
+  runs for `pull_request` events targeting `main` and `push` events targeting
+  `main`, preventing duplicate checks for feature-branch PR updates. It runs
+  `bun test src scripts --coverage --coverage-reporter=lcov` (scoped to unit
+  tests only), which both prints the summary and writes `coverage/lcov.info`, then
   uploads that report with
   [`codecov/codecov-action@v7`](https://github.com/codecov/codecov-action).
   Codecov supplies the PR report, coverage history, and dynamic README
@@ -435,14 +577,14 @@ silently landing breaking upstream changes in a PoC with nobody watching.
   on lockfile drift, not silently accept it). Installs no Node toolchain
   itself — see [Runtime & tooling baseline](#runtime--tooling-baseline)
   for the Node-via-Actions caveat this doesn't change.
-- **`.github/workflows/checks.yml`** — triggers on `pull_request` (any
-  branch) and `push` to any branch. Single job, first step
+- **`.github/workflows/checks.yml`** — triggers on `pull_request` events
+  targeting `main` and `push` events targeting `main`. Single job, first step
   `uses: ./.github/actions/init`, then:
   1. `bun run lint` (check mode, not write)
   2. `bun run format` (check mode, not write)
   3. `bun run typecheck`
-  4. `bun test src --coverage --coverage-reporter=lcov` (unit tests only —
-     bare `bun test` also discovers `e2e/browser/*.spec.ts` and
+  4. `bun test src scripts --coverage --coverage-reporter=lcov` (unit tests
+     only — bare `bun test` also discovers `e2e/browser/*.spec.ts` and
      `e2e/api/*.test.ts`, which need Playwright/a built server and belong
      to step 7, not this coverage step)
   5. `codecov/codecov-action@v7` with `files: coverage/lcov.info`,
@@ -453,12 +595,13 @@ silently landing breaking upstream changes in a PoC with nobody watching.
   8. `bun run build`
   9. `docker build -f Dockerfile .` (build-only, no push/registry) — catches
      Dockerfile breakage without any deploy step.
-- **`.github/workflows/pr-title.yml`** — job grants `pull-requests: read`
-  (required by `amannn/action-semantic-pull-request` to read the PR) and
-  validates the PR title itself is a
-  Conventional Commit (`amannn/action-semantic-pull-request`), lowercase
-  subject, no scope required. Complements `commit-msg` linting, which only
-  covers individual commits, not the squash-merge title GitHub uses by
+- **`.github/workflows/pr-title.yml`** — runs for pull requests on
+  `opened`, `edited`, `reopened`, and `synchronize`; its job grants
+  `pull-requests: read` and uses
+  `amannn/action-semantic-pull-request@v6`. It requires a Conventional
+  Commit title with no required scope and a lowercase-leading subject
+  (`^[a-z].+$`). It complements `commit-msg` linting, which covers
+  individual commits rather than the squash-merge title GitHub uses by
   default.
 - **No deploy workflow.** Deployment is handled entirely outside GitHub
   Actions by the external clone-build-run service.
@@ -507,8 +650,8 @@ home).
 
 **README onboarding**: after the scaffold passes clean-checkout verification,
 `README.md` is updated as the final onboarding step. It explains the current
-scaffold concept and its explicit boundary (hello-world page plus
-DB-backed health check, not checkout product behavior); lists Bun, TanStack
+scaffold concept and its explicit boundary (hello-world page plus a
+database-connectivity health check, not checkout product behavior); lists Bun,
 Start/React, Drizzle/libSQL, Valibot, Vite, oxlint/oxfmt, Playwright, Docker
 Compose, and GitHub Actions; and documents prerequisites. It supplies the
 exact local sequence `bun install`, `cp .env.example .env`, `bun run
@@ -537,10 +680,11 @@ spec.
   committed-artifact, kept-current discipline as
   [Documentation](#documentation), applied to the process that produces
   the code, not just the docs describing the result.
-- **Test-driven**: within that process, tests are drafted before the
-  implementation they cover — red, then green, then refactor. This
-  applies to unit, API-e2e, and browser-e2e work alike: a failing test
-  exists first, code changes make it pass second, not the reverse.
+- **Test-driven**: tests for new observable application behavior are drafted
+  before the implementation they cover — red, then green, then refactor.
+  Unit, API-e2e, and browser-e2e work follow this rule. Bootstrap and
+  configuration-only work is instead verified by the relevant executable
+  commands; it does not manufacture a meaningless red test.
 - **KISS, YAGNI, DRY — always**: the simplest thing that satisfies the
   spec wins; nothing is built speculatively ahead of an actual need;
   duplication gets factored out, not copy-pasted forward. These aren't
@@ -564,8 +708,9 @@ The scaffold is complete when all of the following hold:
   guarantee; keeping deps current afterward is normal maintenance, not
   something this spec automates.
 - `bun run dev` serves the hello-world page at `/` and a 200 response with
-  the expected JSON shape at `/api/health`, using the default local file-mode
-  libSQL DB at `.data/local.db` — after the one-time `bun run db:migrate`.
+  `{ status: "ok", uptime: number, timestamp: string }` at `/api/health`,
+  using the default local file-mode libSQL DB at `.data/local.db` — after
+  the one-time `bun run db:migrate`.
 - `.env.example` documents the safe local `DATABASE_URL` and `PORT`
   defaults; `.env` is a gitignored copy and the same commands also pass
   after `.env` is deleted.
@@ -580,13 +725,10 @@ The scaffold is complete when all of the following hold:
   pushing a change with no colocated test file is not blocked.
 - `docker-compose.yml` and `docker-compose.sqld.yml` start successfully
   (`docker compose -f <file> up`) and the app responds on its exposed
-  port. `docker-compose.sqld-ha.yml` additionally works with
-  `--scale app=2` — its `app` service exposes the container port without
-  a fixed host port mapping specifically so scaling doesn't collide.
-  `docker-compose.turso-ha.yml` is validated with `docker compose config`
-  (structurally valid) only — a live `up` needs real Turso Cloud
-  credentials this repo doesn't provision (see
-  [Non-goals](#non-goals)), so it's out of scope for this criterion.
+  port. The **same built image**, started with a `DATABASE_URL` that
+  differs from the build-time default, persists to that
+  runtime-supplied path — not the build-time default — proving the
+  container env override actually takes effect.
 - `CLAUDE.md` is a working symlink whose resolved content is byte-identical
   to `AGENTS.md`.
 - `README.md` is a self-contained new-contributor onboarding guide: it
@@ -630,7 +772,30 @@ The scaffold is complete when all of the following hold:
 - Any product/domain schema, business logic, or real UI beyond the
   hello-world/health-check scaffold — `schema.ts`, `index.tsx`, `health.ts`,
   and `example.ts` are intentionally throwaway proofs, not a starting
-  domain model.
+  domain model. Adopting the `shadcn` add-on's config/utility scaffolding
+  (see [Application framework](#application-framework)) does not change
+  this — no shadcn components are added, and no design system is built on
+  top of them.
+- Two `@tanstack/cli` add-ons stay declined: `drizzle` (its `sqlite`
+  database choice defaults to the `better-sqlite3` driver; this scaffold
+  keeps its hand-built `drizzle-orm/libsql` wiring instead — see
+  [Data layer](#data-layer)) and `form` (`@tanstack/react-form` — no form
+  exists in this scaffold to wire it to). Tailwind CSS and TanStack
+  Devtools are template baseline, not add-ons at all — see
+  [Application framework](#application-framework).
+- Real PostHog usage: this scaffold wires the SDK and its two optional
+  env vars (see [Typed environment](#typed-environment-srcenvts-and-srcenvserverts))
+  so a project key turns analytics on later; it defines no event
+  taxonomy, no dashboards, and captures nothing by default
+  (`capture_pageview: false` in the generated provider).
+- Real TanStack Query usage: `QueryClient`/devtools wiring only — no
+  query, mutation, or cache-invalidation code is written against it; the
+  `pings` health check still goes through `src/lib/example.ts` and
+  Drizzle directly, not through a query hook.
+- A Nitro deploy-provider preset (Vercel, Netlify, Cloudflare, AWS
+  Lambda, etc.) — `Dockerfile` and the compose topologies below remain
+  the only supported deployment path; see
+  [Deployment topologies](#deployment-topologies-docker-compose).
 - Wiring the compose files into the external deploy service (e.g. a Coolify
   project) — out of scope; this repo only ships the compose files
   themselves.
@@ -644,9 +809,6 @@ The scaffold is complete when all of the following hold:
   by us; this repo only pins *which marketplace/source* they come from
   and *how* they're installed.
 - A reverse proxy / load balancer container — the external deploy platform owns that.
-- Turso Cloud account provisioning — the `turso-ha` compose file expects
-  `DATABASE_URL`/`DATABASE_AUTH_TOKEN` to already exist as secrets; creating
-  the actual Turso Cloud database is an operational step outside this repo.
 - Pinning superpowers to an exact version/SHA — confirmed not achievable:
   every marketplace install command (`name@marketplace`, on Claude Code,
   OMP, and Codex alike) resolves to whatever the marketplace catalog
