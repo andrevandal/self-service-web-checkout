@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "boilerplate-scaffold",
+      "name": "self-service-web-checkout",
       "dependencies": {
         "@libsql/client": "0.17.4",
         "@posthog/react": "1.10.3",
