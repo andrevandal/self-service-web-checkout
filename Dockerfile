@@ -12,9 +12,8 @@ FROM oven/bun:1 AS runtime
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
-RUN bun install --production --frozen-lockfile
-COPY --from=builder /app/dist ./dist
+COPY package.json ./
+COPY --from=builder /app/.output ./.output
 
 RUN groupadd --system app \
   && useradd --system --gid app --create-home app \
