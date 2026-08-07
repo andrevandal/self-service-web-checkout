@@ -681,10 +681,10 @@ git commit -m "docs(scaffold): document contributor operations"
 - [ ] **Step 1: Write failing workflow syntax checks**
 
 ```bash
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
 ```
 
-Expected: FAIL because workflow files do not exist. Add `actionlint` as a dev dependency if the binary is unavailable.
+Expected: FAIL because workflow files do not exist. Workflow syntax is checked with the Docker actionlint image once the files exist.
 
 - [ ] **Step 2: Implement the shared init action**
 
@@ -692,7 +692,7 @@ Write composite action steps in this order: `moonrepo/setup-toolchain`, Bun cach
 
 - [ ] **Step 3: Implement checks and PR title workflows**
 
-`checks.yml` triggers `pull_request` and all `push` branches, uses local init, then runs: lint; format; typecheck; `bun test --coverage --coverage-reporter=lcov`; Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` uses `amannn/action-semantic-pull-request` with lowercase subject and scopes optional.
+`checks.yml` triggers `pull_request` and all `push` branches, uses local init, then runs: lint; format; typecheck; `bun test src --coverage --coverage-reporter=lcov`; Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` uses `amannn/action-semantic-pull-request` with lowercase subject, scopes optional, and job-level `pull-requests: read` permission.
 
 - [ ] **Step 4: Implement release configuration**
 
@@ -703,8 +703,8 @@ Use a single-package `node` release type at `.`. Add `.release-please-manifest.j
 Run:
 
 ```bash
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
-bun test --coverage --coverage-reporter=lcov
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+bun test src --coverage --coverage-reporter=lcov
 test -s coverage/lcov.info
 bun run lint && bun run format && bun run typecheck && bun run test:e2e && bun run build
 docker build -f Dockerfile .
@@ -773,7 +773,7 @@ Expected: every command exits 0.
 ```bash
 cmp AGENTS.md CLAUDE.md
 bunx lefthook run pre-commit
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
 docker compose -f docker-compose.turso-ha.yml config
 git check-ignore coverage/lcov.info
 git check-ignore .data/local.db

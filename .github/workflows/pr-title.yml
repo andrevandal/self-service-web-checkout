@@ -5,6 +5,8 @@ on:
 
 jobs:
   lint-pr-title:
+    permissions:
+      pull-requests: read
     runs-on: ubuntu-latest
     steps:
       - name: Validate pull request title
