@@ -793,7 +793,7 @@ Expected: every command exits 0.
 ```bash
 cmp AGENTS.md CLAUDE.md
 bunx lefthook run pre-commit
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
 docker compose -f docker-compose.turso-ha.yml config
 git check-ignore coverage/lcov.info
 git check-ignore .data/local.db
