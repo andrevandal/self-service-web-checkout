@@ -22,4 +22,3 @@ export const serverEnvSchema = v.object(serverEnvFields);
 export const parseServerEnv = (input: unknown) => v.parse(serverEnvSchema, input);
 
 export default defineStandardEnv({ server: serverEnvFields });
-

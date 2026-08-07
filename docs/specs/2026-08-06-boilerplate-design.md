@@ -10,7 +10,7 @@ Status: Approved for planning
 - [Editor & repo hygiene](#editor--repo-hygiene)
 - [Application framework](#application-framework)
 - [Data layer](#data-layer)
-- [Typed environment (`src/env.ts`)](#typed-environment-srcenvts)
+- [Typed environment (`src/env.ts` and `src/env.server.ts`)](#typed-environment-srcenvts-and-srcenvserverts)
 - [Deployment topologies (Docker Compose)](#deployment-topologies-docker-compose)
 - [Testing](#testing)
 - [Coverage & badges](#coverage--badges)
@@ -21,7 +21,7 @@ Status: Approved for planning
 - [Release automation](#release-automation)
 - [Documentation](#documentation)
 - [Development workflow](#development-workflow)
-- [Acceptance criteria](#acceptance-criteria)
+- [Execution decisions](#execution-decisions)
 - [Non-goals](#non-goals)
 
 ## Purpose
@@ -63,6 +63,9 @@ or UI is defined here — see "Non-goals."
   [Agent tooling setup](#agent-tooling-setup-harness-agnostic-standardized)).
   `typecheck` runs `tsc --noEmit` — Vite/TanStack Start's build does not
   fail on type errors by default, so this is a separate, explicit gate.
+  The Vite-native runtime commands are `vite dev`, `vite build`, and
+  `bun dist/server/server.js`; the latter is the production server emitted
+  by the configured TanStack Start Vite plugin.
 
 ## Editor & repo hygiene
 
@@ -92,8 +95,10 @@ or UI is defined here — see "Non-goals."
       example.ts               # example domain-shaped function, DB-backed
     db/
       schema.ts                # one trivial example table (proves Drizzle wiring)
-      client.ts                # Drizzle + libSQL client, reads env.ts
-    env.ts                     # valibot-validated typed env, server-only (see below)
+      client.ts                # virtual-import-free Drizzle factory
+      client.server.ts         # server-only application DB singleton
+    env.ts                     # valibot schema and testable parser
+    env.server.ts              # server-only virtual-env adapter with typed output
   scripts/
     seed.ts                    # example seed script for the example table
     setup-agent-plugins.ts     # bun run agents:setup
@@ -128,7 +133,13 @@ or UI is defined here — see "Non-goals."
 ## Data layer
 
 - **Drizzle ORM** with the `drizzle-orm/libsql` driver, `drizzle-kit` for
-  schema/migrations.
+  schema/migrations. `drizzle-kit`'s `dialect: "sqlite"` credentials type
+  accepts only `url`, not an auth token — `dbCredentials` in
+  `drizzle.config.ts` therefore carries `DATABASE_URL` alone; the
+  application factory's separate `createDatabase(url, authToken?)` still
+  accepts a token for runtime libSQL/Turso connections (see
+  [Deployment topologies](#deployment-topologies-docker-compose) for the
+  Turso migration-runner boundary this implies).
 - **Local dev**: libSQL's embedded **file mode**, defaulted in `env.ts` to
   `file:./.data/local.db` when unset or empty — no `.env` required to start.
   `.data/` is gitignored. No server process or Docker required. `bun run dev`
@@ -143,7 +154,7 @@ or UI is defined here — see "Non-goals."
   the compose files only; wiring them into that external service is out of
   scope.
 
-## Typed environment (`src/env.ts`)
+## Typed environment (`src/env.ts` and `src/env.server.ts`)
 
 - **[`@vite-env/core`](https://github.com/pyyupsk/vite-env)** (`vite-env`)
   is the env layer: `defineStandardEnv()` with **valibot** schemas (the
@@ -158,9 +169,10 @@ or UI is defined here — see "Non-goals."
   empty, so local dev and CI work with zero configuration),
   `DATABASE_AUTH_TOKEN` (optional; required in practice only for the
   `turso-ha` topology — a missing token there surfaces as a libSQL auth error
-  at connection time, not a startup-time env error), and `PORT` (valid port
-  number, defaults to `3000`). No `client` block is defined because nothing
-  in this scaffold is exposed to the browser.
+  at connection time, not a startup-time env error), and `PORT` (a string or
+  number input coerced to a valid port number, defaults to `3000`). No
+  `client` block is defined because nothing in this scaffold is exposed to the
+  browser.
 - **Naming caveat**: `@vite-env/core` hardcodes its client-var prefix to
   `VITE_` (enforced at `defineEnv`/`defineStandardEnv` call time, not
   configurable) — it does **not** support a `PUBLIC_` prefix. Since this
@@ -178,10 +190,15 @@ or UI is defined here — see "Non-goals."
   the virtual modules); throws a clear error only for a malformed, nonempty
   `DATABASE_URL` (anything not prefixed `file:` or `libsql:`). An empty
   value normalizes to the safe local default.
-- All app code imports env from `virtual:env/server` (server code) — no
-  raw `process.env` access elsewhere. `scripts/seed.ts` and other
-  Vite-external scripts use `@vite-env/core`'s standalone `loadEnv()`
-  runtime loader instead, since they run outside Vite.
+- No repository-owned code accesses raw `process.env`. `src/env.server.ts`
+  alone imports the raw `virtual:env/server` values, parses them through
+  `src/env.ts`, and exports the application-level typed `serverEnv` with
+  `DATABASE_URL: string`, `DATABASE_AUTH_TOKEN?: string`, and `PORT: number`.
+  This adapter avoids `@vite-env/core`'s generated raw declaration, which
+  represents Standard-Schema values as strings, becoming the application
+  contract. Vite-external scripts use `@vite-env/core`'s standalone `loadEnv()`
+  runtime loader instead. The API e2e launcher passes only its generated
+  `PORT` through `Bun.spawn`'s explicit environment map.
 - `.env.example` is generated via `bunx vite-env generate` from the
   schema, then documents the safe `DATABASE_URL=file:./.data/local.db` and
   `PORT=3000` defaults; it is committed. Scaffold setup copies it to `.env`,
@@ -257,11 +274,25 @@ implementation.
   sequentially; all three remain separate from `test` (unit), so their
   file globs never collide.
 
+## Execution decisions
+
+- TanStack Start v1 uses its Vite-native plugin, not legacy Vinxi. The
+  scaffold scripts are `vite dev`, `vite build`, and
+  `bun dist/server/server.js`; the production artifact was built and served
+  successfully with this configuration.
+- The API e2e test's startup lifecycle is complete when written. Its initial
+  execution may pass once earlier tasks provide a working built application;
+  do not manufacture a failure solely to satisfy a red-phase checkpoint.
+- Clean-checkout verification uses a retained detached worktree through README
+  validation. It is intentionally not removed by this implementation; after
+  all tasks and reviews complete, the implementation branch is pushed.
+
 ## Coverage & badges
 
 - **Every PR and push to `main`**: `checks.yml` runs
-  `bun test --coverage --coverage-reporter=lcov`, which both prints the
-  summary and writes `coverage/lcov.info`, then uploads that report with
+  `bun test src --coverage --coverage-reporter=lcov` (scoped to unit tests
+  only), which both prints the summary and writes `coverage/lcov.info`, then
+  uploads that report with
   [`codecov/codecov-action@v7`](https://github.com/codecov/codecov-action).
   Codecov supplies the PR report, coverage history, and dynamic README
   badge; coverage is informational, not a threshold merge gate.
@@ -408,7 +439,10 @@ silently landing breaking upstream changes in a PoC with nobody watching.
   1. `bun run lint` (check mode, not write)
   2. `bun run format` (check mode, not write)
   3. `bun run typecheck`
-  4. `bun test --coverage --coverage-reporter=lcov`
+  4. `bun test src --coverage --coverage-reporter=lcov` (unit tests only —
+     bare `bun test` also discovers `e2e/browser/*.spec.ts` and
+     `e2e/api/*.test.ts`, which need Playwright/a built server and belong
+     to step 7, not this coverage step)
   5. `codecov/codecov-action@v7` with `files: coverage/lcov.info`,
      `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`
   6. `bunx playwright install --with-deps chromium`
@@ -417,7 +451,9 @@ silently landing breaking upstream changes in a PoC with nobody watching.
   8. `bun run build`
   9. `docker build -f Dockerfile .` (build-only, no push/registry) — catches
      Dockerfile breakage without any deploy step.
-- **`.github/workflows/pr-title.yml`** — validates the PR title itself is a
+- **`.github/workflows/pr-title.yml`** — job grants `pull-requests: read`
+  (required by `amannn/action-semantic-pull-request` to read the PR) and
+  validates the PR title itself is a
   Conventional Commit (`amannn/action-semantic-pull-request`), lowercase
   subject, no scope required. Complements `commit-msg` linting, which only
   covers individual commits, not the squash-merge title GitHub uses by

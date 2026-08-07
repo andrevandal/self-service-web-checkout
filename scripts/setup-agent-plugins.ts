@@ -1,3 +1,5 @@
+export {};
+
 type Command = [string, ...string[]];
 
 const dryRun = Bun.argv.includes("--dry-run");
@@ -9,29 +11,32 @@ const vendoredSkills = [
   "code-review",
 ];
 
-
-function runCommand(label: string, command: Command): boolean {
+const runCommand = (label: string, command: Command): boolean => {
   console.log(`${dryRun ? "[dry-run] " : ""}${label}: ${command.join(" ")}`);
-  if (dryRun) return true;
+  if (dryRun) {
+    return true;
+  }
   const result = Bun.spawnSync(command);
-  if (result.stdout.length > 0) process.stdout.write(result.stdout);
-  if (result.stderr.length > 0) process.stderr.write(result.stderr);
+  if (result.stdout.length > 0) {
+    process.stdout.write(result.stdout);
+  }
+  if (result.stderr.length > 0) {
+    process.stderr.write(result.stderr);
+  }
   if (result.exitCode !== 0) {
     console.error(`${label} exited with status ${result.exitCode}`);
     return false;
   }
   return true;
-}
+};
 
-function runWhenAvailable(
-  label: string,
-  executable: string,
-  command: Command,
-): boolean {
-  if (dryRun || Bun.which(executable)) return runCommand(label, command);
+const runWhenAvailable = (label: string, executable: string, command: Command): boolean => {
+  if (dryRun || Bun.which(executable)) {
+    return runCommand(label, command);
+  }
   console.log(`${label}: ${executable} not detected; skipped.`);
   return true;
-}
+};
 
 console.log(
   "Supported harnesses: OMP, Gemini CLI, GitHub Copilot CLI, Factory Droid, Claude Code, Codex, OpenCode, Cursor",
@@ -39,59 +44,59 @@ console.log(
 
 let successful = true;
 successful =
-  runWhenAvailable(
-    "OMP marketplace registration",
+  runWhenAvailable("OMP marketplace registration", "omp", [
     "omp",
-    ["omp", "plugin", "marketplace", "add", "obra/superpowers-marketplace"],
-  ) && successful;
+    "plugin",
+    "marketplace",
+    "add",
+    "obra/superpowers-marketplace",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "OMP Superpowers installation",
+  runWhenAvailable("OMP Superpowers installation", "omp", [
     "omp",
-    [
-      "omp",
-      "plugin",
-      "install",
-      "--scope",
-      "project",
-      "superpowers@superpowers-marketplace",
-    ],
-  ) && successful;
+    "plugin",
+    "install",
+    "--scope",
+    "project",
+    "superpowers@superpowers-marketplace",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "Gemini CLI Superpowers installation",
+  runWhenAvailable("Gemini CLI Superpowers installation", "gemini", [
     "gemini",
-    ["gemini", "extensions", "install", "https://github.com/obra/superpowers"],
-  ) && successful;
+    "extensions",
+    "install",
+    "https://github.com/obra/superpowers",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "GitHub Copilot CLI marketplace registration",
+  runWhenAvailable("GitHub Copilot CLI marketplace registration", "copilot", [
     "copilot",
-    ["copilot", "plugin", "marketplace", "add", "obra/superpowers-marketplace"],
-  ) && successful;
+    "plugin",
+    "marketplace",
+    "add",
+    "obra/superpowers-marketplace",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "GitHub Copilot CLI Superpowers installation",
+  runWhenAvailable("GitHub Copilot CLI Superpowers installation", "copilot", [
     "copilot",
-    [
-      "copilot",
-      "plugin",
-      "install",
-      "superpowers@superpowers-marketplace",
-    ],
-  ) && successful;
+    "plugin",
+    "install",
+    "superpowers@superpowers-marketplace",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "Factory Droid marketplace registration",
+  runWhenAvailable("Factory Droid marketplace registration", "droid", [
     "droid",
-    ["droid", "plugin", "marketplace", "add", "https://github.com/obra/superpowers"],
-  ) && successful;
+    "plugin",
+    "marketplace",
+    "add",
+    "https://github.com/obra/superpowers",
+  ]) && successful;
 successful =
-  runWhenAvailable(
-    "Factory Droid Superpowers installation",
+  runWhenAvailable("Factory Droid Superpowers installation", "droid", [
     "droid",
-    ["droid", "plugin", "install", "superpowers@superpowers"],
-  ) && successful;
+    "plugin",
+    "install",
+    "superpowers@superpowers",
+  ]) && successful;
 
 console.log("Interactive installation prompts (run inside the named harness):");
 console.log("Claude Code: /plugin marketplace add obra/superpowers-marketplace");
@@ -109,4 +114,6 @@ for (const skill of vendoredSkills) {
   console.log(`- ${skill}: ${status ? "present" : "missing"}`);
 }
 
-if (!successful) process.exitCode = 1;
+if (!successful) {
+  process.exitCode = 1;
+}
