@@ -4,5 +4,6 @@ import { createDatabase } from "./client";
 
 test("creates a usable in-memory libSQL database", async () => {
   const db = createDatabase("file::memory:");
-  await expect(db.run(sql`SELECT 1`)).resolves.toBeDefined();
+  const result = await db.run(sql`SELECT 1`);
+  expect(result).toBeDefined();
 });
