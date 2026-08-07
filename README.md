@@ -1,33 +1,129 @@
-# Self-service web checkout (kiosk)
+# Self-service web checkout
 
-> In-progress by the user, don't change this file. If you need so, ask the user.
+[![Checks](https://github.com/andrevandal/self-service-web-checkout/actions/workflows/checks.yml/badge.svg)](https://github.com/andrevandal/self-service-web-checkout/actions/workflows/checks.yml)
+[![Codecov](https://codecov.io/gh/andrevandal/self-service-web-checkout/graph/badge.svg)](https://app.codecov.io/gh/andrevandal/self-service-web-checkout)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
+[![Release](https://img.shields.io/github/v/release/andrevandal/self-service-web-checkout)](https://github.com/andrevandal/self-service-web-checkout/releases)
 
-This is a small frictionless no-label self-service checkout web app for a snack bar.
+## Concept
 
-## Essential user case
+This repository currently provides scaffold proof only: a TanStack Start page and
+`/api/health` endpoint that writes and reads a `pings` record through
+Drizzle/libSQL. It does **not** implement product checkout behavior yet.
 
-A customer walks up to a tablet mounted at the counter, browses the menu, builds an order, pays, and walks away. No cashier, just them and the screen.
+## Tech stack
 
-### Tech UX
+- Bun and TypeScript
+- TanStack Start, React, and Vite
+- Drizzle ORM and libSQL
+- Valibot and `@vite-env/core`
+- oxlint and oxfmt
+- Playwright
+- Docker Compose
+- GitHub Actions
 
-- The client lets someone see the menu (fetched from the API), build up an order, enter
-payment, and submit it.
-- The API serves the menu and accepts the order. Payment can be any shape you like and
-does not need to be real or processed. Submitting an order just needs to persist it (file or DB,
-your call) and return a sensible response.
+## Prerequisites
 
-## Ideias/Premisses
+- Bun, at version pinned by `.prototools`
+- Docker and Docker Compose for container validation or deployment
+- Chromium for browser end-to-end tests: `bunx playwright install chromium`
 
-- Every instance deployed will be independent and run on a specific device adjusted for the software. This device will be a tabled linked to a wireless printed and pinpad (to credit card payment). Because of that, each instance will have an tag as identifier to be used as its order-prefix as we'll have a offline first approach (we'll trust that we could talk with pinpad and printer via bluetooth and the pinpad could have or not internet connection; for this POC, we'll just create a client-side layer pretending that we're asking these third-party devices to do something with an abstraction layer [just get a command, sleep someting (during tests we must skip all timers (fake timers) or set timers as off via env/var like a multiple from 0 to 1, accepting float to control the timer) because some timmed experiences like loadind state must be tested]).
-- 
+## Quick start
 
-## Seed Menu (for demontration-only)
-
-To enable testing the software, it has a seed command to add some items on the menu.
-Once you had .env set, run:
-
-```zsh
-bun db:seed
+```bash
+bun install
+cp .env.example .env
+bun run db:migrate
+bun run dev
 ```
 
-Check all menu items on `./scripts/seed.ts`
+`.env` is optional: safe defaults use `DATABASE_URL=file:./.data/local.db` and
+`PORT=3000`. Open <http://localhost:3000/> or run:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+The migration is required once before the health endpoint can persist its ping.
+
+## Development
+
+- `bun run dev` — start Vite development server on port 3000.
+- `bun run build` — produce client and server production artifacts.
+- `bun run start` — run the built server from `dist/server/server.js`.
+- `bun run db:generate` — generate Drizzle migrations from the schema.
+- `bun run db:migrate` — apply migrations to the configured database.
+- `bun run db:seed` — add one sample ping after migrations have run.
+- `bun run agents:setup` — configure supported agent harnesses or print their interactive instructions.
+- `bun run agents:update` — update supported agent tooling and vendored skills.
+
+## Database
+
+`DATABASE_URL` accepts `file:` and `libsql:` URLs. Unset or empty values default
+to `file:./.data/local.db`; `.data/` is ignored. `DATABASE_AUTH_TOKEN` is
+optional at application runtime for remote libSQL/Turso connections.
+
+Run `bun run db:migrate` before `bun run db:seed` or serving the health route.
+The seed command intentionally does not run migrations itself.
+
+## Testing and quality checks
+
+```bash
+bun run lint
+bun run format
+bun run typecheck
+bun run test
+bun run test:e2e:api
+bun run test:e2e:browser
+bun run build
+```
+
+- `bun run test` runs unit tests under `src/` and `scripts/`.
+- `bun run test:e2e:api` builds, migrates, and owns a separate HTTP server.
+- `bun run test:e2e:browser` builds and drives Chromium through Playwright.
+- `bun run test:e2e` runs both end-to-end layers sequentially.
+
+Lefthook runs staged-file linting/formatting, Conventional Commit validation,
+and affected colocated tests before push.
+
+## Deployment topologies
+
+| Compose file | Use case |
+| --- | --- |
+| `docker-compose.yml` | One app with a named local libSQL file volume. |
+| `docker-compose.sqld.yml` | One app and an internal healthchecked sqld database. |
+| `docker-compose.sqld-ha.yml` | Scalable app replicas with one sqld database single point of failure. |
+| `docker-compose.turso-ha.yml` | Scalable app replicas with externally provisioned Turso credentials. |
+
+See [deployment guidance](docs/deployment.md) for availability boundaries,
+required secrets, and migration-runner constraints. No topology supplies a
+reverse proxy or migration-on-boot orchestration.
+
+## Agent tooling
+
+[Agent tooling guidance](docs/agent-tooling.md) defines the four tiers,
+vendored OpenCode skills, setup/update behavior, and harness-specific manual
+steps. OMP is the recommended harness.
+
+```bash
+bun run agents:setup
+bun run agents:update
+```
+
+## CI and releases
+
+GitHub Actions runs lint, format, typecheck, unit coverage, API/browser e2e,
+build, and Docker build checks on every push and pull request. Configure the
+repository `CODECOV_TOKEN` Actions secret before relying on Codecov uploads.
+
+Use Conventional Commits for commit and pull-request titles. On Conventional
+Commits merged to `main`, release-please opens or updates a Release PR and owns
+`CHANGELOG.md` generation.
+
+## Documentation
+
+- [Scaffold design](docs/specs/2026-08-06-boilerplate-design.md)
+- [Implementation plan](docs/plans/2026-08-06-boilerplate-plan.md)
+- [Deployment guidance](docs/deployment.md)
+- [Agent tooling guidance](docs/agent-tooling.md)
+- [MIT license](LICENSE.md)
