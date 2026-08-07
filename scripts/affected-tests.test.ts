@@ -15,6 +15,10 @@ test("omits unmatched files", async () => {
   expect(await collectAffectedTests(["src/lib/missing.ts"])).toEqual([]);
 });
 
+test("omits end-to-end tests owned by separate runners", async () => {
+  expect(await collectAffectedTests(["e2e/api/health.test.ts"])).toEqual([]);
+});
+
 test("deduplicates affected test paths", async () => {
   expect(
     await collectAffectedTests([

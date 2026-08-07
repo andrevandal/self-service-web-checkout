@@ -2,6 +2,9 @@ export const collectAffectedTests = async (pushFiles: string[]): Promise<string[
   const affectedTests = new Set<string>();
 
   for (const pushFile of pushFiles) {
+    if (!pushFile.startsWith("src/") && !pushFile.startsWith("scripts/")) {
+      continue;
+    }
     const candidate = pushFile.endsWith(".test.ts")
       ? pushFile
       : pushFile.endsWith(".ts")
