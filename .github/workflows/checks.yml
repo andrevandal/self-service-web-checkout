@@ -27,7 +27,7 @@ jobs:
         run: bun run typecheck
 
       - name: Test with coverage
-        run: bun test src --coverage --coverage-reporter=lcov
+        run: bun test src scripts --coverage --coverage-reporter=lcov
 
       - name: Upload coverage
         uses: codecov/codecov-action@v7
