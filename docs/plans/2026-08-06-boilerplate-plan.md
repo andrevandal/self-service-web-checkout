@@ -18,7 +18,7 @@
   unset or empty database URL as that default; only malformed nonempty URLs
   fail validation. Valid prefixes are `file:` and `libsql:`. Keep `.data/`
   gitignored.
-- All application server code reads env through `virtual:env/server`; no application `process.env` reads. External Bun scripts use `loadEnv()`.
+- No repository-owned code reads `process.env`. Application server code reads env through `virtual:env/server`; external Bun scripts use `loadEnv()`; the API e2e launcher supplies only its generated `PORT` in an explicit `Bun.spawn` environment map.
 - Unit tests are colocated under `src/**/*.test.ts`; API and browser e2e remain under separate `e2e/api/` and `e2e/browser/` commands.
 - Tests precede implementation: red, green, then minimal refactor. Commit each independently testable task with Conventional Commit syntax and an explicit scope.
 - `README.md` currently says not to change it without user permission. Before Task 12 replaces it, obtain that permission or stop Task 12; all other tasks remain executable.
@@ -82,15 +82,15 @@ Create `.prototools` with Bun’s current stable version discovered during Step 
 ```json
 {
   "scripts": {
-    "dev": "vinxi dev",
-    "build": "vinxi build",
-    "start": "vinxi start",
+    "dev": "vite dev",
+    "build": "vite build",
+    "start": "bun dist/server/server.js",
     "lint": "oxlint .",
     "lint:fix": "oxlint --fix .",
     "format": "oxfmt --check .",
     "format:fix": "oxfmt --write .",
     "typecheck": "tsc --noEmit",
-    "test": "bun test src",
+    "test": "bun test src scripts",
     "test:e2e:api": "bun run db:migrate && bun run build && bun test e2e/api",
     "test:e2e:browser": "bun run build && playwright test",
     "test:e2e": "bun run test:e2e:api && bun run test:e2e:browser",
@@ -139,12 +139,12 @@ git commit -m "chore(scaffold): bootstrap Bun TanStack Start tooling"
 ### Task 2: Typed environment and application shell
 
 **Files:**
-- Create: `src/env.ts`, `src/env.test.ts`, `src/routes/index.tsx`, `src/routes/api/health.ts`
+- Create: `src/env.ts`, `src/env.server.ts`, `src/env.test.ts`, `src/routes/index.tsx`, `src/routes/api/health.ts`
 - Modify: `vite.config.ts`, `src/router.tsx`, `src/routeTree.gen.ts`, `.env.example`
 
 **Interfaces:**
 - Consumes: Vite config from Task 1.
-- Produces: `serverEnv` from `virtual:env/server` with `DATABASE_URL: string`, `DATABASE_AUTH_TOKEN?: string`, and `PORT: number`; `GET /` and `GET /api/health` route contracts.
+- Produces: `src/env.server.ts` parses `virtual:env/server` into application-level `serverEnv` with `DATABASE_URL: string`, `DATABASE_AUTH_TOKEN?: string`, and `PORT: number`; `GET /` and `GET /api/health` route contracts.
 
 - [ ] **Step 1: Write failing environment tests**
 
@@ -184,10 +184,17 @@ export const serverEnvSchema = v.object({
     v.regex(/^(file:|libsql:)/, "DATABASE_URL must start with file: or libsql:"),
   ),
   DATABASE_AUTH_TOKEN: v.optional(v.string()),
-  PORT: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(65535)), 3000),
+  PORT: portSchema,
 });
 export const parseServerEnv = (input: unknown) => v.parse(serverEnvSchema, input);
 ```
+
+`portSchema` accepts Vite's string input, coerces it to a number, then applies
+the integer and `1..65535` validation with a default of `3000`.
+`src/env.server.ts` is the only application adapter importing
+`virtual:env/server`; it exports `serverEnv = parseServerEnv(rawServerEnv)`.
+Keep `src/env.ts` free of virtual imports so parser tests remain runnable under
+`bun test`. Configure Vite's server port as `3000`.
 
 In `vite.config.ts`, register TanStack Start, `vite-env-only`, and
 `defineStandardEnv({ server: serverEnvSchema })` from `@vite-env/core`; retain
@@ -221,13 +228,13 @@ git commit -m "feat(app): add typed environment and scaffold routes"
 ### Task 3: Drizzle migration foundation
 
 **Files:**
-- Create: `src/db/schema.ts`, `src/db/client.ts`, `src/db/client.test.ts`, `drizzle.config.ts`
+- Create: `src/db/schema.ts`, `src/db/client.ts`, `src/db/client.server.ts`, `src/db/client.test.ts`, `drizzle.config.ts`
 - Create: generated `drizzle/*`
 - Modify: `package.json`
 
 **Interfaces:**
-- Consumes: `serverEnv` from `virtual:env/server` and typed external-script environment loading.
-- Produces: `createDatabase(url: string, authToken?: string)`, the `pings` table, and working `db:generate`/`db:migrate` commands.
+- Consumes: typed `serverEnv` from `src/env.server.ts` and typed external-script environment loading.
+- Produces: virtual-import-free `createDatabase(url: string, authToken?: string)`, the application `db` singleton, the `pings` table, and working `db:generate`/`db:migrate` commands.
 - [ ] **Step 1: Write a failing database-client test**
 
 ```ts
@@ -259,7 +266,7 @@ export const pings = sqliteTable("pings", {
 });
 ```
 
-`src/db/client.ts` exports `createDatabase(url, authToken?)`, which creates a libSQL client and returns Drizzle configured with `pings`. It reads `serverEnv` only when creating the application database; the exported factory accepts its URL and optional token for tests and scripts. Create `drizzle.config.ts` using `loadEnv()` to resolve the same typed database URL outside Vite, then configure `drizzle-kit` with `schema: "./src/db/schema.ts"`, `out: "./drizzle"`, `dialect: "sqlite"`, and that URL. Do not read `process.env` in application or repository-owned Bun code.
+`src/db/client.ts` exports `createDatabase(url, authToken?)`, which creates a libSQL client and returns Drizzle configured with `pings`; it contains no environment import so Bun tests and scripts can import it. `src/db/client.server.ts` is the sole application database boundary: it imports typed `serverEnv` from `src/env.server.ts` and exports the application `db` singleton created by the factory. Create `drizzle.config.ts` using `loadEnv()` to resolve the same typed database URL outside Vite, then configure `drizzle-kit` with `schema: "./src/db/schema.ts"`, `out: "./drizzle"`, `dialect: "sqlite"`, and that URL. Do not read `process.env` in application or repository-owned Bun code.
 
 - [ ] **Step 4: Generate the migration and run green checks**
 
@@ -374,7 +381,7 @@ let baseUrl = "";
 beforeAll(async () => {
   const port = 3100 + Math.floor(Math.random() * 1000);
   baseUrl = `http://127.0.0.1:${port}`;
-  child = Bun.spawn(["bun", "run", "start"], { env: { ...process.env, PORT: String(port) }, stdout: "ignore", stderr: "inherit" });
+  child = Bun.spawn(["bun", "run", "start"], { env: { PORT: String(port) }, stdout: "ignore", stderr: "inherit" });
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try { if ((await fetch(`${baseUrl}/api/health`)).ok) return; } catch { /* server not ready */ }
     await Bun.sleep(100);
@@ -408,7 +415,7 @@ bun run test:e2e:api
 bunx playwright test e2e/browser/home.spec.ts
 ```
 
-Expected: API test fails before startup polling is implemented correctly; browser test fails until `playwright.config.ts` supplies its `webServer` and base URL.
+Expected: browser test fails until `playwright.config.ts` supplies its `webServer` and base URL. The API test may pass because its prescribed startup polling is already present and Tasks 1–4 can satisfy the endpoint contract; do not manufacture a failure.
 
 - [ ] **Step 4: Implement startup ownership and Playwright configuration**
 
@@ -531,8 +538,14 @@ Implement `collectAffectedTests` using `Bun.file(candidate).exists()` and de-dup
 pre-commit:
   parallel: true
   commands:
-    lint: { run: bunx oxlint --fix {staged_files}, stage_fixed: true }
-    format: { run: bunx oxfmt --write {staged_files}, stage_fixed: true }
+    lint:
+      glob: "*.{js,ts,jsx,tsx}"
+      run: bunx oxlint --fix --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
+    format:
+      glob: "*.{js,ts,jsx,tsx,json,jsonc,md,css,html,yml,yaml}"
+      run: bunx oxfmt --write --no-error-on-unmatched-pattern {staged_files}
+      stage_fixed: true
 commit-msg:
   commands:
     conventional: { run: bunx commitlint --edit {1} }
@@ -540,6 +553,13 @@ pre-push:
   commands:
     affected-tests: { run: bun scripts/affected-tests.ts {push_files} }
 ```
+
+`glob` filters `{staged_files}` per command and skips the command entirely when
+nothing matches. `--no-error-on-unmatched-pattern` additionally covers the case
+where a matched file is itself ignored by `.oxlintrc.json`/`.oxfmtrc.jsonc`
+(for example a staged, oxlint-ignored generated file, or a doc path oxfmt
+ignores) — without it, oxlint/oxfmt exit nonzero on zero linted files and the
+hook fails on an otherwise-valid commit.
 
 Set `commitlint.config.ts` to `export default { extends: ["@commitlint/config-conventional"] };`.
 
@@ -672,7 +692,7 @@ git commit -m "docs(scaffold): document contributor operations"
 
 **Files:**
 - Create: `.github/actions/init/action.yml`, `.github/workflows/checks.yml`, `.github/workflows/pr-title.yml`, `.github/workflows/release.yml`, `release-please-config.json`, `.release-please-manifest.json`
-- Modify: `.gitignore`, `package.json`, `bun.lock`
+- Modify: `.gitignore`
 
 **Interfaces:**
 - Consumes: all scripts above, `coverage/lcov.info`, `CODECOV_TOKEN`, and Conventional Commit history.
@@ -681,10 +701,10 @@ git commit -m "docs(scaffold): document contributor operations"
 - [ ] **Step 1: Write failing workflow syntax checks**
 
 ```bash
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
 ```
 
-Expected: FAIL because workflow files do not exist. Add `actionlint` as a dev dependency if the binary is unavailable.
+Expected: FAIL because workflow files do not exist. Use `rhysd/actionlint`'s official released binary/Docker action for the `bunx actionlint`-style checks below (the `actionlint` npm package is a WASM library with no executable `bin`, so it cannot satisfy this check as a dependency).
 
 - [ ] **Step 2: Implement the shared init action**
 
@@ -692,19 +712,19 @@ Write composite action steps in this order: `moonrepo/setup-toolchain`, Bun cach
 
 - [ ] **Step 3: Implement checks and PR title workflows**
 
-`checks.yml` triggers `pull_request` and all `push` branches, uses local init, then runs: lint; format; typecheck; `bun test --coverage --coverage-reporter=lcov`; Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` uses `amannn/action-semantic-pull-request` with lowercase subject and scopes optional.
+`checks.yml` triggers `pull_request` and all `push` branches, uses local init, then runs: lint; format; typecheck; `bun test src scripts --coverage --coverage-reporter=lcov` (unit tests only, matching the Global Constraints unit/e2e separation and `package.json`'s `test` script scope — bare `bun test` also discovers `e2e/browser/*.spec.ts` and `e2e/api/*.test.ts`, which need Playwright/a built server and are not part of this step); Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` grants its job `pull-requests: read` (required by `amannn/action-semantic-pull-request` to read the PR), triggers on `types: [opened, edited, reopened, synchronize]` so a corrected or later-edited title re-validates, and uses that action with lowercase subject and scopes optional. `checks.yml` sets workflow-level `permissions: contents: read` (least privilege; only `actions/checkout` needs it).
 
 - [ ] **Step 4: Implement release configuration**
 
-Use a single-package `node` release type at `.`. Add `.release-please-manifest.json` with `{".": "0.1.0"}`. The workflow triggers only push to `main`, grants `contents: write` and `pull-requests: write`, and uses `googleapis/release-please-action`. Add `coverage/`, `test-results/`, and Playwright output to `.gitignore`. Do not hand-author `CHANGELOG.md`; release-please owns it after its first merged Release PR. Task 12 documents required `CODECOV_TOKEN` and Release PR token decisions in the final README.
+Use a single-package `node` release type at `.`. Add `.release-please-manifest.json` with `{".": "0.1.0"}` and set `package.json`'s `version` to `"0.1.0"` so both sources agree before the first Release PR. The workflow triggers only push to `main`, grants `contents: write` and `pull-requests: write`, and uses `googleapis/release-please-action`. Add `coverage/`, `test-results/`, and Playwright output to `.gitignore`. Do not hand-author `CHANGELOG.md`; release-please owns it after its first merged Release PR. Task 12 documents required `CODECOV_TOKEN` and Release PR token decisions in the final README.
 
 - [ ] **Step 5: Run workflow and local coverage checks**
 
 Run:
 
 ```bash
-bunx actionlint .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
-bun test --coverage --coverage-reporter=lcov
+docker run --rm -v "$PWD":/repo -w /repo rhysd/actionlint:latest -color .github/workflows/checks.yml .github/workflows/pr-title.yml .github/workflows/release.yml
+bun test src --coverage --coverage-reporter=lcov
 test -s coverage/lcov.info
 bun run lint && bun run format && bun run typecheck && bun run test:e2e && bun run build
 docker build -f Dockerfile .
@@ -780,14 +800,12 @@ git check-ignore .data/local.db
 ```
 Expected: every command exits 0. Confirm GitHub-only behavior after first push: checks workflow, semantic PR-title rejection, Codecov upload with secret configured, and release-please Release PR after a Conventional Commit reaches `main`.
 
-- [ ] **Step 5: Remove verification worktree and commit defects only**
+- [ ] **Step 5: Retain verification worktree**
 
-```bash
-cd /home/andrevandal/www/self-service-web-checkout
-git worktree remove ../self-service-web-checkout-verify
-```
-
-If Steps 2–4 found defects, first add a focused red test, apply minimal fix, rerun affected plus full verification, then commit using the relevant Conventional Commit type/scope. If none exist, no final empty commit.
+Keep `../self-service-web-checkout-verify` available through Task 12's README
+validation. Do not remove it as part of this implementation. After all tasks
+and reviews complete, push the implementation branch as directed by the
+repository owner.
 
 ### Task 12: Finalize new-contributor README onboarding
 
@@ -888,6 +906,13 @@ Expected: every command exits 0. Follow the listed quick-start commands on the c
 git add README.md
 git commit -m "docs(readme): add contributor onboarding guide"
 ```
+
+- [ ] **Step 5: Retain verification workspace and push after completion**
+
+Keep the Task 11 verification workspace; do not remove it as part of this
+implementation. After all tasks and reviews complete, push the implementation
+branch as directed by the repository owner.
+
 
 ## Plan Self-Review
 
