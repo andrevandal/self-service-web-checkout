@@ -247,11 +247,11 @@ or UI is defined here — see "Non-goals."
   `bun test` with arbitrary fixture objects), and a
   `defineStandardEnv({ server: serverEnvFields, client: clientEnvFields })`
   default export that registers both blocks with the Vite plugin.
-- **Schema**: server — `DATABASE_URL` (string, defaults to
-  `file:./.data/local.db` when unset or empty, so local dev and CI work
-  with zero configuration) and `PORT` (a string or number input coerced
-  to a valid port number, defaults to `3000`). Client — the `posthog`
-  add-on's two vars, both optional strings with no default:
+- **Schema**: server — `DATABASE_URL` (a `file:`, `libsql:`, `http:`, or
+  `https:` URL, defaulting to `file:./.data/local.db` when unset or empty,
+  so local dev and CI work with zero configuration) and `PORT` (a string or
+  number input coerced to a valid port number, defaults to `3000`). Client —
+  the `posthog` add-on's two vars, both optional strings with no default:
   `VITE_POSTHOG_KEY` and `VITE_POSTHOG_HOST`. `@vite-env/core` hardcodes
   its client-var prefix to `VITE_` (confirmed unconfigurable in its
   source, checked exhaustively — both its Zod and Standard-Schema
@@ -271,9 +271,9 @@ or UI is defined here — see "Non-goals."
 - **`src/env.server.ts` uses the library's standalone runtime loader**
   (`@vite-env/core/load`'s `loadEnv()`) instead of importing the
   generated `virtual:env/server` module:
-  `export const serverEnv = (await loadEnv(config)).server;`, where
-  `config` is `src/env.ts`'s own `defineStandardEnv(...)` default export
-  — the same schema object the Vite plugin uses. This is a real
+  `export const serverEnv = parseServerEnv((await loadEnv(config)).server);`,
+  where `config` is `src/env.ts`'s own `defineStandardEnv(...)` default export
+  and `parseServerEnv` restores the typed Valibot output. This is a real
   distinction, confirmed by reading the installed package's source
   (`node_modules/@vite-env/core/dist/load.mjs`): the Vite plugin's
   virtual modules resolve to a `Object.freeze(JSON.stringify(data))`
@@ -295,18 +295,18 @@ or UI is defined here — see "Non-goals."
   supplied at container start — silently breaking the entire premise of
   [Deployment topologies](#deployment-topologies-docker-compose): the
   same image is meant to run against `file:/app/data/local.db` in
-  `docker-compose.yml` and `libsql://db:8080` in
+  `docker-compose.yml` and `http://db:8080` in
   `docker-compose.sqld.yml`, picking a different persisted-DB location or
   remote target per container's environment, not per build. Switching to
   the standalone `loadEnv()` loader — while keeping `@vite-env/core` and
   its Vite plugin for everything else — closes that gap: the same
   `.output/` build now genuinely honors whichever `DATABASE_URL` its
-  container is started with. `drizzle.config.ts` and `scripts/seed.ts`
-  use the identical `loadEnv(config)` call (matching the library's own
-  documented "standalone runtime loader" example, which uses a
-  `scripts/seed.ts` as its illustration) instead of calling `vite`'s
-  `loadEnv()` directly, so there is exactly one env-resolution pattern
-  across every Bun-executed entry point.
+  container is started with. `scripts/seed.ts` uses the identical
+  `loadEnv(config)` call. `drizzle.config.ts` is the necessary exception:
+  drizzle-kit transpiles its TypeScript config to CommonJS, where top-level
+  `await` is unavailable, so it uses Vite's synchronous `loadEnv()` then
+  `parseServerEnv()` against the same schema. Both paths preserve one
+  validation contract across every entry point.
 - **`vite-env-only`** stays in the Vite plugin chain alongside
   `@vite-env/core`, not instead of it: it covers the *broader*
   server-only module boundary (all of `src/db/*`, not just the env
@@ -323,9 +323,9 @@ or UI is defined here — see "Non-goals."
   no parallel raw-`import.meta.env` path left unvalidated. Both vars stay
   optional with no default; the provider still no-ops gracefully when the
   key is unset.
-- The API e2e launcher passes only its generated `PORT` through
-  `Bun.spawn`'s explicit environment map, exercising the same
-  `loadEnv()`-driven resolution the real server uses.
+- The API e2e launcher passes its generated `PORT` and a unique
+  `DATABASE_URL` through `Bun.spawn`'s explicit environment map, then asserts
+  that the runtime-supplied database file was created.
 - `.env.example` is generated via `bunx vite-env generate` from the full
   schema — server and client together — documenting the safe
   `DATABASE_URL=file:./.data/local.db` and `PORT=3000` defaults plus

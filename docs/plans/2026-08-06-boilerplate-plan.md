@@ -17,9 +17,17 @@
 - Do not add product/domain behavior, schema, UI, reverse proxy, deployment workflow, migration-on-boot logic, or per-agent shim files.
 - Use `DATABASE_URL=file:./.data/local.db` and `PORT=3000` defaults. Treat an
   unset or empty database URL as that default; only malformed nonempty URLs
-  fail validation. Valid prefixes are `file:` and `libsql:`. Keep `.data/`
-  gitignored.
-- `process.env` is never read directly by repository-owned code. `src/env.server.ts` (the application server), `drizzle.config.ts` (the migration CLI), and each `scripts/*.ts`'s own `main()` all resolve typed env through `@vite-env/core/load`'s standalone `loadEnv(config)` — the same schema the Vite plugin validates, but read fresh per-process instead of the plugin's build-time-frozen `virtual:env/server`. The API e2e launcher supplies only its generated `PORT` in an explicit `Bun.spawn` environment map.
+  fail validation. Valid prefixes are `file:`, `libsql:`, `http:`, and
+  `https:`. Keep `.data/` gitignored.
+- `process.env` is never read directly by repository-owned code.
+  `src/env.server.ts` and each `scripts/*.ts` main resolve typed env through
+  `@vite-env/core/load`'s standalone `loadEnv(config)`, then
+  `parseServerEnv()`, so runtime values are never frozen into
+  `virtual:env/server`. `drizzle.config.ts` uses Vite's synchronous
+  `loadEnv()` plus that same parser because drizzle-kit transpiles its config
+  to CommonJS, which cannot use top-level `await`. The API e2e launcher passes
+  generated `PORT` and `DATABASE_URL` values through an explicit `Bun.spawn`
+  environment map.
 - Unit tests are colocated under `src/**/*.test.ts` and
   `scripts/**/*.test.ts`, run by `bun test src scripts`; API and browser e2e
   remain under separate `e2e/api/` and `e2e/browser/` commands.
@@ -182,9 +190,19 @@ const serverEnvFields = {
   DATABASE_URL: v.pipe(
     v.optional(v.string(), "file:./.data/local.db"),
     v.transform((value) => value || "file:./.data/local.db"),
-    v.regex(/^(file:|libsql:)/, "DATABASE_URL must start with file: or libsql:"),
+    v.regex(
+      /^(file:|libsql:|https?:)/,
+      "DATABASE_URL must start with file:, libsql:, http:, or https:",
+    ),
   ),
-  PORT: portSchema,
+  PORT: v.pipe(
+    v.optional(v.union([v.number(), v.string()]), 3000),
+    v.transform((value) => (typeof value === "string" ? Number(value) : value)),
+    v.number(),
+    v.integer(),
+    v.minValue(1),
+    v.maxValue(65535),
+  ),
 };
 
 const clientEnvFields = {
@@ -197,8 +215,8 @@ export const parseServerEnv = (input: unknown) => v.parse(serverEnvSchema, input
 export default defineStandardEnv({ server: serverEnvFields, client: clientEnvFields });
 ```
 
-`portSchema` accepts a string or number input, coerces it to a number, then applies
-the integer and `1..65535` validation with a default of `3000`.
+`PORT` accepts a string or number input, coerces it to a number, then applies
+integer and `1..65535` validation with a default of `3000`.
 `@vite-env/core` is this scaffold's single source of truth for every env
 var — hardcoding a `VITE_` prefix for client keys with no override, which
 this scaffold's own Vite setup already defaults to, so `VITE_POSTHOG_KEY`/
@@ -213,9 +231,9 @@ for why that breaks Docker's per-container `DATABASE_URL`):
 ```ts
 // src/env.server.ts
 import { loadEnv } from "@vite-env/core/load";
-import config from "./env";
+import config, { parseServerEnv } from "./env";
 
-export const serverEnv = (await loadEnv(config)).server;
+export const serverEnv = parseServerEnv((await loadEnv(config)).server);
 ```
 
 This resolves fresh at module-import time in whatever process is actually
@@ -309,7 +327,7 @@ export const pings = sqliteTable("pings", {
 });
 ```
 
-`src/db/client.ts` exports `createDatabase(url)`, which creates a libSQL client and returns Drizzle configured with `pings`; it contains no environment import so Bun tests and scripts can import it. `src/db/client.server.ts` is the sole application database boundary: it imports typed `serverEnv` from `src/env.server.ts` and exports the application `db` singleton created by the factory. Create `drizzle.config.ts` using `@vite-env/core/load`'s `loadEnv(config)` to resolve the same typed database URL outside Vite, then configure `drizzle-kit` with that URL.
+`src/db/client.ts` exports `createDatabase(url)`, which creates a libSQL client and returns Drizzle configured with `pings`; it contains no environment import so Bun tests and scripts can import it. `src/db/client.server.ts` is the sole application database boundary: it imports typed `serverEnv` from `src/env.server.ts` and exports the application `db` singleton created by the factory. Create `drizzle.config.ts` with Vite's synchronous `loadEnv("development", process.cwd(), "")` followed by `parseServerEnv()`; drizzle-kit loads its TypeScript config as CommonJS and therefore cannot await `@vite-env/core/load`. The application and Bun scripts still use the standalone loader at runtime.
 
 - [ ] **Step 4: Generate the migration and run green checks**
 
@@ -432,27 +450,45 @@ git commit -m "feat(data): add libSQL ping persistence and health check"
 - [ ] **Step 1: Write failing API smoke test**
 
 ```ts
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterAll, beforeAll, expect, test } from "bun:test";
 
 let child: Bun.Subprocess;
 let baseUrl = "";
+let databaseDirectory = "";
+let databasePath = "";
 beforeAll(async () => {
   const port = 3100 + Math.floor(Math.random() * 1000);
   baseUrl = `http://127.0.0.1:${port}`;
-  child = Bun.spawn(["bun", "run", "start"], { env: { PORT: String(port) }, stdout: "ignore", stderr: "inherit" });
+  databaseDirectory = await mkdtemp(join(tmpdir(), "scaffold-health-"));
+  databasePath = join(databaseDirectory, "runtime.db");
+  child = Bun.spawn([process.execPath, "run", "start"], {
+    env: { PORT: String(port), DATABASE_URL: `file:${databasePath}` },
+    stdout: "ignore",
+    stderr: "inherit",
+  });
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try { if ((await fetch(`${baseUrl}/api/health`)).ok) return; } catch { /* server not ready */ }
     await Bun.sleep(100);
   }
   throw new Error("Server did not become ready");
 });
-afterAll(() => child.kill());
+afterAll(async () => {
+  child.kill();
+  await child.exited;
+  await rm(databaseDirectory, { force: true, recursive: true });
+});
 test("health endpoint reports database connectivity", async () => {
   const response = await fetch(`${baseUrl}/api/health`);
   expect(response.status).toBe(200);
   expect(await response.json()).toEqual(
     expect.objectContaining({ status: "ok", uptime: expect.any(Number), timestamp: expect.any(String) }),
   );
+});
+test("uses the database URL supplied when the server starts", async () => {
+  expect(await Bun.file(databasePath).exists()).toBe(true);
 });
 ```
 
@@ -508,8 +544,10 @@ git commit -m "test(e2e): add API and browser scaffold smoke tests"
 - Modify: `.dockerignore`
 
 **Interfaces:**
-- Consumes: `PORT`, built server command, Drizzle’s `file:`/`libsql:` configuration.
-- Produces: named-volume local DB topology and internal healthchecked sqld topology; both run one app process.
+- Consumes: `PORT`, built server command, and Drizzle `file:`, `libsql:`,
+  `http:`, or `https:` configuration.
+- Produces: named-volume local DB topology and internal healthchecked sqld
+  topology; both run one app process.
 
 - [ ] **Step 1: Write failing topology validations**
 
@@ -527,7 +565,7 @@ Use an `oven/bun` builder to install with `--frozen-lockfile` and run `bun run b
 
 - [ ] **Step 3: Implement exact compose constraints**
 
-`docker-compose.yml` has only `app`, mounts a named volume at `/app/data`, and sets `DATABASE_URL=file:/app/data/local.db`. `docker-compose.sqld.yml` creates `app` + `db`, puts `db` only on an internal network, gives `db` a healthcheck, and uses `depends_on: { db: { condition: service_healthy } }`; app uses `DATABASE_URL=libsql://db:8080`. Both topology files run exactly one `app` process.
+`docker-compose.yml` has only `app`, mounts a named volume at `/app/data`, and sets `DATABASE_URL=file:/app/data/local.db`. `docker-compose.sqld.yml` creates `app` + `db`, puts `db` only on an internal network, gives `db` a healthcheck, and uses `depends_on: { db: { condition: service_healthy } }`; app uses the internal server's HTTP endpoint, `DATABASE_URL=http://db:8080`. Both topology files run exactly one `app` process.
 
 - [ ] **Step 4: Document topology selection**
 

@@ -8,13 +8,14 @@
 ## Concept
 
 This repository currently provides scaffold proof only: a TanStack Start page and
-`/api/health` endpoint that writes and reads a `pings` record through
+a `/api/health` endpoint that checks database connectivity through
 Drizzle/libSQL. It does **not** implement product checkout behavior yet.
 
 ## Tech stack
 
 - Bun and TypeScript
-- TanStack Start, React, and Vite
+- TanStack Start, React, Vite, and Tailwind CSS
+- TanStack Devtools, TanStack Query, shadcn/ui, PostHog, and Nitro
 - Drizzle ORM and libSQL
 - Valibot and `@vite-env/core`
 - oxlint and oxfmt
@@ -44,13 +45,13 @@ bun run dev
 curl http://localhost:3000/api/health
 ```
 
-The migration is required once before the health endpoint can persist its ping.
+The migration is required once before `bun run db:seed` can persist a sample ping; `/api/health` itself needs no migration, only a reachable database.
 
 ## Development
 
 - `bun run dev` — start Vite development server on port 3000.
 - `bun run build` — produce client and server production artifacts.
-- `bun run start` — run the built server from `dist/server/server.js`.
+- `bun run start` — run the built server from `.output/server/index.mjs` (Nitro-built).
 - `bun run db:generate` — generate Drizzle migrations from the schema.
 - `bun run db:migrate` — apply migrations to the configured database.
 - `bun run db:seed` — add one sample ping after migrations have run.
@@ -59,12 +60,12 @@ The migration is required once before the health endpoint can persist its ping.
 
 ## Database
 
-`DATABASE_URL` accepts `file:` and `libsql:` URLs. Unset or empty values default
-to `file:./.data/local.db`; `.data/` is ignored. `DATABASE_AUTH_TOKEN` is
-optional at application runtime for remote libSQL/Turso connections.
+`DATABASE_URL` accepts `file:`, `libsql:`, `http:`, and `https:` URLs. Unset
+or empty values default to `file:./.data/local.db`; `.data/` is ignored.
 
-Run `bun run db:migrate` before `bun run db:seed` or serving the health route.
-The seed command intentionally does not run migrations itself.
+Run `bun run db:migrate` before `bun run db:seed`. `/api/health` only needs a
+reachable database, not a migrated `pings` table, and the seed command
+intentionally does not run migrations itself.
 
 ## Testing and quality checks
 
@@ -92,8 +93,6 @@ Commit validation in `commit-msg`, and affected colocated tests in `pre-push`.
 | --- | --- |
 | `docker-compose.yml` | One app with a named local libSQL file volume. |
 | `docker-compose.sqld.yml` | One app and an internal healthchecked sqld database. |
-| `docker-compose.sqld-ha.yml` | Scalable app replicas with one sqld database single point of failure. |
-| `docker-compose.turso-ha.yml` | Scalable app replicas with externally provisioned Turso credentials. |
 
 See [deployment guidance](docs/deployment.md) for availability boundaries,
 required secrets, and migration-runner constraints. No topology supplies a
@@ -113,8 +112,9 @@ bun run agents:update
 ## CI and releases
 
 GitHub Actions runs lint, format, typecheck, unit coverage, API/browser e2e,
-build, and Docker build checks on every push and pull request. Configure the
-repository `CODECOV_TOKEN` Actions secret before relying on Codecov uploads.
+build, and Docker build checks for pull requests targeting `main` and pushes to
+`main`. Configure the repository `CODECOV_TOKEN` Actions secret before relying
+on Codecov uploads.
 
 Use Conventional Commits for commit and pull-request titles. On Conventional
 Commits merged to `main`, release-please opens or updates a Release PR and owns
