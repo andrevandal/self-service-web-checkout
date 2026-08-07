@@ -5,6 +5,7 @@
   "singleQuote": false,
   "ignorePatterns": [
     "src/routeTree.gen.ts",
+    "vite-env.d.ts",
     "README.md",
     ".cta.json",
     "docs/**/*.md",
