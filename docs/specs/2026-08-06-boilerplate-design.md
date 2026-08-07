@@ -57,9 +57,8 @@ or UI is defined here — see "Non-goals."
   libSQL files), `.data/`, `.env*`, `dist`, `.output`, `coverage`,
   `test-results` from the Docker build context.
 - **`package.json` scripts**: `dev`, `build`, `start`, `lint`, `lint:fix`,
-  `format`, `format:fix`, `typecheck`, `test`, `test:e2e`,
-  `test:e2e:api`, `test:e2e:browser`, `db:generate`, `db:migrate`,
-  `db:seed`, `agents:setup`, `agents:update` (see
+  `format`, `format:fix`, `typecheck`, `test`, `test:e2e`, `db:generate`,
+  `db:migrate`, `db:seed`, `agents:setup`, `agents:update` (see
   [Agent tooling setup](#agent-tooling-setup-harness-agnostic-standardized)).
   `typecheck` runs `tsc --noEmit` — Vite/TanStack Start's build does not
   fail on type errors by default, so this is a separate, explicit gate.
@@ -357,36 +356,24 @@ implementation.
 
 ## Testing
 
-- **Unit tests**: `bun test src scripts` scopes unit tests to
-  `src/**/*.test.ts` and `scripts/**/*.test.ts` (excluding `e2e/`, whose
-  suites have dedicated commands). Tests are colocated with their source
-  (e.g. `src/lib/example.test.ts`) and run against an ephemeral in-memory/file
-  libSQL DB — same in CI and locally, with no Docker dependency.
-- **E2E tests, two layers** — API-level and browser-level, not one
-  instead of the other:
-  - **`e2e/api/`**: no browser. `bun:test` directly — after building,
-    `Bun.spawn` boots the app (`bun run start`) as a child process on an
-    ephemeral port, polls until it accepts connections, then plain
-    `fetch()` asserts a `200` with
-    `{ status: "ok", uptime: number, timestamp: string }` on
-    `/api/health`, and the child process is killed in an `afterAll`. The
-    `503`/DB-failure path is a `src/lib/example.test.ts` unit-test
-    concern (mocked `db`), not this black-box layer's — the e2e app
-    always has a reachable database. No browser binary, no download
-    step. This layer covers everything that doesn't need a real
-    DOM/rendering pipeline.
-  - **`e2e/browser/`**: [Playwright](https://playwright.dev)
-    (`@playwright/test`) starts the same built app through its `webServer`
-    config and checks the hello-world page renders in Chromium.
-    `bunx playwright install chromium` is a one-time local setup step;
-    Linux CI uses `bunx playwright install --with-deps chromium` to add
-    runner OS dependencies too. The init action caches
-    `~/.cache/ms-playwright` keyed by OS and `bun.lock`.
-- **Self-contained commands**: each `test:e2e:api` and
-  `test:e2e:browser` command builds before starting its server, so either
-  runs identically from a clean local checkout or CI. `test:e2e` runs both
-  sequentially; all three remain separate from `test` (unit), so their
-  file globs never collide.
+- **Unit and route tests**: `bun test src scripts` scopes tests to
+  `src/**/*.test.ts` and `scripts/**/*.test.ts`. Tests are colocated with
+  their source and run against ephemeral in-memory/file libSQL DBs — same in
+  CI and locally, with no Docker dependency. The health route test mocks its
+  server database module before dynamically importing the endpoint `Route`,
+  invokes its configured GET handler directly, and asserts the successful
+  health JSON response.
+- **Browser E2E**: [Playwright](https://playwright.dev)
+  (`@playwright/test`) is the sole real-server E2E layer. Its `webServer`
+  config starts the built app and checks the hello-world page renders in
+  Chromium. `test:e2e` migrates the database before building and starting
+  that server. `bunx playwright install chromium` is a one-time local setup
+  step; Linux CI uses `bunx playwright install --with-deps chromium` to add
+  runner OS dependencies. The init action caches `~/.cache/ms-playwright`
+  keyed by OS and `bun.lock`.
+- **Self-contained command**: `test:e2e` migrates and builds before starting
+  its server, so it runs identically from a clean local checkout or CI and
+  remains separate from `test` (unit and route tests).
 
 ## Execution decisions
 
@@ -583,14 +570,13 @@ silently landing breaking upstream changes in a PoC with nobody watching.
   1. `bun run lint` (check mode, not write)
   2. `bun run format` (check mode, not write)
   3. `bun run typecheck`
-  4. `bun test src scripts --coverage --coverage-reporter=lcov` (unit tests
-     only — bare `bun test` also discovers `e2e/browser/*.spec.ts` and
-     `e2e/api/*.test.ts`, which need Playwright/a built server and belong
-     to step 7, not this coverage step)
+  4. `bun test src scripts --coverage --coverage-reporter=lcov` (unit and
+     route tests only — bare `bun test` also discovers Playwright specs,
+     which need a built server and belong to step 7)
   5. `codecov/codecov-action@v7` with `files: coverage/lcov.info`,
      `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`
   6. `bunx playwright install --with-deps chromium`
-  7. `bun run test:e2e` (both API and browser layers — see
+  7. `bun run test:e2e` (browser layer — see
      [Testing](#testing))
   8. `bun run build`
   9. `docker build -f Dockerfile .` (build-only, no push/registry) — catches
@@ -657,7 +643,7 @@ Compose, and GitHub Actions; and documents prerequisites. It supplies the
 exact local sequence `bun install`, `cp .env.example .env`, `bun run
 db:migrate`, and `bun run dev`, while stating that `.env` is optional because
 safe defaults exist. It also documents development/database commands,
-unit/API/browser e2e and quality commands, deployment-topology and
+unit/route/browser test and quality commands, deployment-topology and
 agent-tooling links, agent setup/update commands, CI/Codecov/release
 expectations, and links to the current spec and implementation plan.
 
@@ -716,8 +702,8 @@ The scaffold is complete when all of the following hold:
   after `.env` is deleted.
 - `bun run lint`, `bun run format`, `bun run typecheck`, `bun run test`,
   and `bun run build` each exit 0 on the untouched scaffold.
-- The example unit test (`src/lib/example.test.ts`) and both example e2e
-  tests (`e2e/api/`, `e2e/browser/`) pass.
+- The example unit tests, including the direct health-route test, and the
+  browser E2E test (`e2e/browser/`) pass.
 - `git commit` with a non-conventional message is rejected by the
   `commit-msg` hook; a badly formatted/linted staged file is auto-fixed by
   the `pre-commit` hook before the commit lands; pushing a change whose
@@ -734,9 +720,7 @@ The scaffold is complete when all of the following hold:
 - `README.md` is a self-contained new-contributor onboarding guide: it
   explains the scaffold's present concept and non-product boundary; lists the
   tech stack and prerequisites; documents installation,
-  `cp .env.example .env`, migration, local development, database,
-  quality, unit/API/browser-e2e, deployment, agent-tooling, CI/release, and
-  project-documentation instructions; and contains the Codecov, CI, license,
+  quality, unit/route/browser testing, deployment, agent-tooling, CI/release,
   and release badges. `docs/deployment.md` explains the intended use of each
   compose topology.
 - `docs/agent-tooling.md` exists with the full Agent tooling setup
