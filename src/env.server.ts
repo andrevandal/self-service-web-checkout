@@ -1,4 +1,4 @@
-import { env as rawServerEnv } from "virtual:env/server";
-import { parseServerEnv } from "./env";
+import { loadEnv } from "@vite-env/core/load";
+import config, { parseServerEnv } from "./env";
 
-export const serverEnv = parseServerEnv(rawServerEnv);
+export const serverEnv = parseServerEnv((await loadEnv(config)).server);

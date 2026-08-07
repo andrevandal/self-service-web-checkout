@@ -1,12 +1,12 @@
-import { loadEnv } from "vite";
+import { loadEnv } from "@vite-env/core/load";
 import { createDatabase } from "../src/db/client";
-import { parseServerEnv } from "../src/env";
+import config, { parseServerEnv } from "../src/env";
 import { recordPing } from "../src/lib/example";
 
 export const seed = async (url: string) => recordPing(createDatabase(url));
 
 export const main = async () => {
-  const env = parseServerEnv(loadEnv("development", process.cwd(), ""));
+  const env = parseServerEnv((await loadEnv(config)).server);
   const ping = await seed(env.DATABASE_URL);
   console.log(`Seeded ping ${ping.id}`);
 };
