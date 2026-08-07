@@ -47,10 +47,9 @@ Run setup once from the repository root when configuring a checkout:
 bun run agents:setup
 ```
 
-The setup helper runs supported noninteractive commands only when their
-executable is available, prints interactive prompts for harnesses that own
-their plugin UI, and reports the committed OpenCode skill files. A missing
-optional executable is skipped rather than treated as an installation.
+The setup helper prints interactive prompts for harnesses that own their
+plugin UI and reports the committed OpenCode skill files. A missing optional
+executable is skipped rather than treated as an installation.
 
 Run updates manually when you want to review upstream changes:
 
