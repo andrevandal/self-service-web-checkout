@@ -1,3 +1,6 @@
+import { hideBin } from "yargs/helpers";
+import yargs from "yargs";
+
 export const collectAffectedTests = async (pushFiles: string[]): Promise<string[]> => {
   const affectedTests = new Set<string>();
 
@@ -20,7 +23,8 @@ export const collectAffectedTests = async (pushFiles: string[]): Promise<string[
 };
 
 if (import.meta.main) {
-  const tests = await collectAffectedTests(process.argv.slice(2));
+  const argv = await yargs(hideBin(process.argv)).parse();
+  const tests = await collectAffectedTests(argv._.map(String));
   if (tests.length > 0) {
     const result = await Bun.spawn(["bun", "test", ...tests], {
       stderr: "inherit",

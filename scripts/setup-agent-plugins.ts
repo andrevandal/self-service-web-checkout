@@ -1,8 +1,11 @@
-export {};
+import { hideBin } from "yargs/helpers";
+import yargs from "yargs";
 
 type Command = [string, ...string[]];
 
-const dryRun = Bun.argv.includes("--dry-run");
+const { dryRun } = await yargs(hideBin(process.argv))
+  .option("dry-run", { type: "boolean", default: false })
+  .parse();
 const vendoredSkills = [
   "setup-matt-pocock-skills",
   "tdd",
