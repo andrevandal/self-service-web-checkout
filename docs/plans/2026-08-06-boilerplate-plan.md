@@ -696,7 +696,7 @@ git commit -m "docs(scaffold): document contributor operations"
 
 **Interfaces:**
 - Consumes: all scripts above, `coverage/lcov.info`, `CODECOV_TOKEN`, and Conventional Commit history.
-- Produces: checks on every push/PR, semantic PR-title validation, and release-please on pushes to `main`.
+- Produces: checks on every PR and push to `main`, semantic PR-title validation, and release-please on pushes to `main`.
 
 - [ ] **Step 1: Write failing workflow syntax checks**
 
@@ -712,7 +712,7 @@ Write composite action steps in this order: `moonrepo/setup-toolchain`, Bun cach
 
 - [ ] **Step 3: Implement checks and PR title workflows**
 
-`checks.yml` triggers `pull_request` and all `push` branches, uses local init, then runs: lint; format; typecheck; `bun test src scripts --coverage --coverage-reporter=lcov` (unit tests only, matching the Global Constraints unit/e2e separation and `package.json`'s `test` script scope — bare `bun test` also discovers `e2e/browser/*.spec.ts` and `e2e/api/*.test.ts`, which need Playwright/a built server and are not part of this step); Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` grants its job `pull-requests: read` (required by `amannn/action-semantic-pull-request` to read the PR), triggers on `types: [opened, edited, reopened, synchronize]` so a corrected or later-edited title re-validates, and uses that action with lowercase subject and scopes optional. `checks.yml` sets workflow-level `permissions: contents: read` (least privilege; only `actions/checkout` needs it).
+`checks.yml` triggers all `pull_request` events and `push` events only on `main`, avoiding duplicate feature-branch checks. It uses local init, then runs: lint; format; typecheck; `bun test src scripts --coverage --coverage-reporter=lcov` (unit tests only, matching the Global Constraints unit/e2e separation and `package.json`'s `test` script scope — bare `bun test` also discovers `e2e/browser/*.spec.ts` and `e2e/api/*.test.ts`, which need Playwright/a built server and are not part of this step); Codecov v7 with `files: coverage/lcov.info`, `token: ${{ secrets.CODECOV_TOKEN }}`, and `fail_ci_if_error: true`; `bunx playwright install --with-deps chromium`; `bun run test:e2e`; `bun run build`; `docker build -f Dockerfile .`. `pr-title.yml` grants its job `pull-requests: read` (required by `amannn/action-semantic-pull-request`
 
 - [ ] **Step 4: Implement release configuration**
 

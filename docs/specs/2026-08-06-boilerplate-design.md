@@ -289,7 +289,9 @@ implementation.
 
 ## Coverage & badges
 
-- **Every PR and push to `main`**: `checks.yml` runs
+- **Every PR and push to `main`**: `checks.yml` runs for all
+  `pull_request` events and only `push` events targeting `main`, preventing
+  duplicate checks for feature-branch PR updates. It runs
   `bun test src --coverage --coverage-reporter=lcov` (scoped to unit tests
   only), which both prints the summary and writes `coverage/lcov.info`, then
   uploads that report with
