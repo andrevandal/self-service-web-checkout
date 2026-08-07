@@ -27,7 +27,9 @@ bun run build
 
 ## Recommended harness
 
-OMP is the recommended coding-agent harness for this repo. See [Agent tooling setup](docs/agent-tooling.md) for setup, updates, and supported harness behavior.
+OMP is the recommended coding-agent harness for this repo. See [Agent
+tooling operations](docs/agent-tooling.md) for setup, updates, selected
+vendored skills, and supported harness behavior.
 
 ## Embedded ponytail ruleset
 
@@ -46,7 +48,6 @@ The following is the portable zero-install ruleset from [ponytail](https://githu
 > 7. Only then: write the minimum code that works.
 >
 > The ladder runs after you understand the problem, not instead of it: read the task and the code it touches, trace the real flow end to end, then climb.
->
 >
 > Bug fix = root cause, not symptom: a report names a symptom. Grep every caller of the function you touch and fix the shared function once — one guard there is a smaller diff than one per caller, and patching only the path the ticket names leaves a sibling caller still broken.
 >

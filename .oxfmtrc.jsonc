@@ -3,5 +3,11 @@
   "printWidth": 100,
   "semi": true,
   "singleQuote": false,
-  "ignorePatterns": ["src/routeTree.gen.ts", "README.md", ".cta.json", "docs/**/*.md"],
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "README.md",
+    ".cta.json",
+    "docs/**/*.md",
+    ".agents/skills/**",
+  ],
 }
