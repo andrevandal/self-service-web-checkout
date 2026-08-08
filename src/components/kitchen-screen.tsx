@@ -95,7 +95,7 @@ const StaffHeader = ({
       </div>
       <div className="flex items-center gap-3">
         <span
-          className="hidden items-center gap-1.5 text-body-s text-muted-foreground sm:inline-flex"
+          className="inline-flex items-center gap-1.5 text-body-s text-muted-foreground"
           data-testid="kitchen-live-status"
         >
           {live ? (
