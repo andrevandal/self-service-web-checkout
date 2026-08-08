@@ -1,8 +1,22 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { ArrowRight, Store } from "lucide-react";
 import { KioskShell } from "#/components/kiosk-shell";
+import { KioskClaimScreen } from "#/components/kiosk-claim-screen";
+import { getKioskSession } from "#/lib/kiosk-session";
 
 const Home = () => {
+  const session = Route.useLoaderData();
+  const sessionQuery = useQuery({
+    queryKey: ["kiosk-session"],
+    queryFn: () => getKioskSession(),
+    initialData: session,
+  });
+
+  if (!sessionQuery.data) {
+    return <KioskClaimScreen />;
+  }
+
   return (
     <KioskShell
       header={
@@ -11,7 +25,7 @@ const Home = () => {
             <Store aria-hidden className="size-6" strokeWidth={2} />
             <span className="text-heading-s font-semibold">Warm & Melted</span>
           </div>
-          <span className="text-body-s text-muted-foreground">Kiosk 01</span>
+          <span className="text-body-s text-muted-foreground">{sessionQuery.data.name}</span>
         </div>
       }
       bottomBar={
@@ -59,4 +73,7 @@ const Home = () => {
   );
 };
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  loader: () => getKioskSession(),
+  component: Home,
+});
