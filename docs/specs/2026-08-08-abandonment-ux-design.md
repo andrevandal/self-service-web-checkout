@@ -72,8 +72,10 @@ The idle logic is split into two small layers:
 is mounted around both the menu and `CheckoutScreen`, so the timer is not
 recreated when transitioning into checkout. `CheckoutScreen` supplies the
 current payment phase, order ID, and payment-attempt ID. A shared warning modal
-is rendered by the screen owning the hook, using existing Base UI dialog
-patterns and project tokens; no second timer is introduced inside checkout.
+is rendered by the screen owning the hook, reusing the hand-rolled
+`role="dialog"` pattern from spec 3's customization drawer (`aria-modal`,
+focus trapping/restoration, and Escape handling) with project tokens; no
+second timer is introduced inside checkout.
 
 The payment-expiry adapter in `src/lib/payment.ts` is a named
 `createServerFn({ method: "POST" })` with the documented backend signature.
