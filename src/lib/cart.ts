@@ -32,7 +32,8 @@ export type CartState = CartLine[];
 
 export type CartAction =
   | { type: "add"; item: CartLineInput; lineId?: string }
-  | { type: "remove"; lineId: string };
+  | { type: "remove"; lineId: string }
+  | { type: "reset" };
 
 export const linePriceCents = (item: CartLineInput): number => {
   const variantDeltas = item.variants.reduce((sum, variant) => sum + variant.priceDeltaCents, 0);
@@ -56,6 +57,8 @@ export const cartReducer = (state: CartState, action: CartAction): CartState => 
     }
     case "remove":
       return state.filter((line) => line.id !== action.lineId);
+    case "reset":
+      return [];
   }
 };
 

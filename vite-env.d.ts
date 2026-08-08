@@ -10,6 +10,7 @@ declare module 'virtual:env/client' {
   const env: {
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
+    readonly VITE_TERMINAL_DELAY_MS: string
   }
   export { env }
   export default env
@@ -21,6 +22,7 @@ declare module 'virtual:env/server' {
     readonly PORT: string
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
+    readonly VITE_TERMINAL_DELAY_MS: string
   }
   export { env }
   export default env

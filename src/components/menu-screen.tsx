@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import { RefreshCw, Search, ShoppingBag, Store, Trash2, X } from "lucide-react";
 import { CustomizationDrawer } from "#/components/customization-drawer";
+import { CheckoutScreen } from "#/components/checkout-screen";
 import { KioskShell } from "#/components/kiosk-shell";
-import { cartReducer, subtotalCents, type CartLineInput } from "#/lib/cart";
+import { cartReducer, subtotalCents, type CartLineInput, type CartState } from "#/lib/cart";
 import { getMenu, type MenuProduct } from "#/lib/menu";
 import { useQuery } from "@tanstack/react-query";
 
@@ -30,6 +31,7 @@ const toCartLineInput = (product: MenuProduct): CartLineInput => ({
 export const MenuScreen = ({ kioskName }: MenuScreenProps) => {
   const menuQuery = useQuery({ queryKey: ["menu"], queryFn: () => getMenu() });
   const [cart, dispatchCart] = useReducer(cartReducer, []);
+  const [checkoutCart, setCheckoutCart] = useState<CartState | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedProduct, setSelectedProduct] = useState<MenuProduct | null>(null);
@@ -85,6 +87,20 @@ export const MenuScreen = ({ kioskName }: MenuScreenProps) => {
   const subtotal = subtotalCents(cart);
   const drawerProduct = selectedProduct;
 
+  if (checkoutCart) {
+    return (
+      <CheckoutScreen
+        cart={checkoutCart}
+        onCancel={() => setCheckoutCart(null)}
+        onComplete={() => {
+          dispatchCart({ type: "reset" });
+          setCartOpen(false);
+          setCheckoutCart(null);
+        }}
+      />
+    );
+  }
+
   return (
     <KioskShell
       header={
@@ -115,8 +131,9 @@ export const MenuScreen = ({ kioskName }: MenuScreenProps) => {
               {cartOpen ? "Hide cart" : "View cart"}
             </button>
             <button
-              className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground opacity-50 transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-              disabled
+              className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              disabled={cart.length === 0}
+              onClick={() => setCheckoutCart(cart)}
               type="button"
             >
               Pay

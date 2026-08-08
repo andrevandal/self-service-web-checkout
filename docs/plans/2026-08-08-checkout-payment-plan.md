@@ -13,7 +13,7 @@
 - Every order/payment read or write uses a named `createServerFn` invoked through TanStack Query; no raw `fetch` is added.
 - `createOrder` receives only `{ lines: [{ productId, quantity, variantOptionIds, addonIds }] }`; quantity is `1` for each cart line and client money is never trusted.
 - A pending order is created once per checkout; Retry starts a new payment attempt for the same order and never calls `createOrder` again.
-- Terminal simulation defaults to approval and accepts a configurable non-negative delay; browser e2e sets `VITE_TERMINAL_DELAY_MS=0` at build time.
+- Terminal simulation defaults to approval and accepts a configurable non-negative delay; browser e2e sets `VITE_TERMINAL_DELAY_MS=50` at build time so the loading state is observable without slowing the test.
 - Approved confirmation shows `Payment complete`, the kiosk-prefixed pickup number (for example `A-13`), and `Your receipt is printing`, then returns after exactly 2 seconds.
 - Declined, unavailable, invalid, expired, create-order, and adapter errors keep the cart and show Retry/Cancel; only approved completion clears the cart.
 - Touch controls are at least 48px, copy is sentence case with no emoji, Inter remains the only typeface, and receipt/card/customer data never appears in UI or logs.
@@ -25,7 +25,8 @@
 
 **Files:**
 - Create: `e2e/browser/checkout-payment.spec.ts`
-- Modify: `package.json:21` (make the built browser test use zero terminal delay)
+- Modify: `package.json:21` (make the built browser test use a 50ms terminal delay)
+- Modify: `src/env.ts:22-26` (expose the terminal delay as a validated client env value)
 
 **Interfaces:**
 - Consumes: existing `claimFixtureKiosk` helper, fixture menu product named `Classic cheese toastie` at `$6.50`.
@@ -59,7 +60,7 @@ test("pays for an order, confirms pickup, and resets the menu", async ({ page })
 });
 ```
 
-`package.json` must make the browser build deterministic without slowing the real default adapter: update `test:e2e` to run `VITE_TERMINAL_DELAY_MS=0 bun run build` between migration and `playwright test`.
+`package.json` must make the browser build deterministic without slowing the real default adapter: update `test:e2e` to run `VITE_TERMINAL_DELAY_MS=50 bun run build` between migration and `playwright test`.
 
 - [ ] **Step 2: Run only the new browser test to prove it is red**
 
