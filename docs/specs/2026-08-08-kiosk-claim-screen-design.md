@@ -11,7 +11,7 @@
 
 ## Goal
 
-The root route is a session gate. When the tablet has no valid kiosk session, staff can authenticate with the shared setup password, select an existing kiosk to claim or reclaim, or create a new kiosk with a name and unique order prefix. A successful claim stores a signed server cookie; subsequent loads render kiosk mode directly without asking for the password again. A session-bearing root route continues to render the existing kiosk shell placeholder until the menu workflow replaces it in spec 3.
+The root route is a session gate. When the tablet has no valid kiosk session, staff can authenticate with the shared setup password, select an existing kiosk to claim or reclaim, or create a new kiosk with a name and unique order prefix. A successful claim stores a signed server cookie; subsequent loads render the menu ordering state directly without asking for the password again.
 
 ## User experience
 
@@ -29,7 +29,7 @@ The setup footer remains calm and useful: it communicates that the current table
 The root route owns the gate and renders one of two branches:
 
 - **Unclaimed branch:** `KioskClaimScreen`, which owns local form fields and the password-to-chooser progression.
-- **Claimed branch:** the existing kiosk-mode placeholder inside `KioskShell` (the future menu replaces this branch without changing the session boundary).
+- **Claimed branch:** `MenuScreen` inside `KioskShell`, which owns menu browsing and local cart state while retaining the session boundary.
 
 The UI calls a small local adapter, `src/lib/kiosk-session.ts`, rather than coupling components to the unfinished backend module. The adapter exposes typed async operations matching the backend contract:
 

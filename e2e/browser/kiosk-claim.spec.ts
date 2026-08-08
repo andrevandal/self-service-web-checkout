@@ -10,10 +10,10 @@ test("claims an existing kiosk, creates a kiosk, and persists kiosk mode", async
   await expect(page.getByRole("button", { name: /Claim Front counter/ })).toBeVisible();
 
   await page.getByRole("button", { name: /Claim Front counter/ }).click();
-  await expect(page.getByRole("heading", { name: "Self-service web checkout" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
   await expect(page.getByText("Front counter")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Self-service web checkout" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
   await expect(page.getByText("Front counter")).toBeVisible();
 
   await page.context().clearCookies();
@@ -22,10 +22,10 @@ test("claims an existing kiosk, creates a kiosk, and persists kiosk mode", async
   await page.getByRole("textbox", { name: "Kiosk name" }).fill("Patio kiosk");
   await page.getByRole("textbox", { name: "Order prefix" }).fill("P");
   await page.getByRole("button", { name: "Create kiosk" }).click();
-  await expect(page.getByRole("heading", { name: "Self-service web checkout" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
   await expect(page.getByText("Patio kiosk")).toBeVisible();
   await page.reload();
-  await expect(page.getByRole("heading", { name: "Self-service web checkout" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
   await expect(page.getByText("Patio kiosk")).toBeVisible();
 
   await page.context().clearCookies();

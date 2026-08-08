@@ -37,8 +37,7 @@ export const MenuScreen = ({ kioskName }: MenuScreenProps) => {
   const [cartOpen, setCartOpen] = useState(false);
   const triggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
   const selectedTriggerRef = useRef<HTMLButtonElement | null>(null);
-
-  const categories = menuQuery.data?.categories ?? [];
+  const categories = useMemo(() => menuQuery.data?.categories ?? [], [menuQuery.data]);
   useEffect(() => {
     const firstCategory = categories[0];
     if (firstCategory && !categories.some((category) => category.id === selectedCategoryId)) {

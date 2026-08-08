@@ -17,17 +17,17 @@ test("renders the fixed kiosk shell with its design tokens", async ({ page }) =>
   await expect(content).toHaveCSS("flex-grow", "1");
   await expect(content).toHaveCSS("min-height", "0px");
 
-  await expect(page.getByTestId("kiosk-primary-action")).toHaveCSS(
+  await expect(page.getByRole("button", { name: "Pay" })).toHaveCSS(
     "background-color",
     "rgb(47, 110, 79)",
   );
-  await expect(page.getByTestId("kiosk-price")).toHaveText("$12.50");
 
   const sansFamily = await page
-    .getByTestId("kiosk-ui-copy")
+    .getByRole("heading", { name: "Menu" })
     .evaluate((element) => getComputedStyle(element).fontFamily);
   const priceFamily = await page
-    .getByTestId("kiosk-price")
+    .getByRole("contentinfo")
+    .getByText(/0 items/)
     .evaluate((element) => getComputedStyle(element).fontFamily);
   expect(sansFamily).toContain("Inter");
   expect(priceFamily).toContain("Inter");
