@@ -195,7 +195,7 @@ bun run lint && bun run format && bun run typecheck && bun run test
 ## Non-goals
 
 This spec does not add cart-local analytics (the kiosk UI owns
-`cart.abandoned`), a durable event log or retry queue, PostHog person
+`cart_abandoned`), a durable event log or retry queue, PostHog person
 identification, card/receipt data capture, a new API route, payment retries
 beyond the existing attempt lifecycle, order cancellation, or a database
 migration for status. It does not alter the internal safety-valve behavior or
