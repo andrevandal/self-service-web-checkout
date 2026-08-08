@@ -28,9 +28,11 @@ staff authentication.
 
 ### Plain HttpOnly cookie for the HTTP-only POC
 
-The deployment intentionally has no TLS-terminating reverse proxy. The cookie is
-therefore named `kiosk_session` rather than using the `__Host-` prefix, and it
-does not set `Secure`. It still uses `HttpOnly`, `SameSite=Lax`, and `Path=/` so
+The deployment intentionally has no TLS-terminating reverse proxy, so
+`KIOSK_COOKIE_SECURE` defaults to `false`. The cookie is therefore named
+`kiosk_session` rather than using the `__Host-` prefix. Deployments with TLS
+can set `KIOSK_COOKIE_SECURE=true` to add the `Secure` attribute without a code
+change. The cookie always uses `HttpOnly`, `SameSite=Lax`, and `Path=/` so
 browser JavaScript cannot read it and ordinary cross-site requests do not attach
 it. It is a session cookie (no `Max-Age`) and is reissued on every successful
 claim or reclaim.
@@ -131,10 +133,14 @@ A successful claim sets:
 kiosk_session=<token>; HttpOnly; SameSite=Lax; Path=/
 ```
 
+and adds `; Secure` when `KIOSK_COOKIE_SECURE=true`.
+
 `KIOSK_CLAIM_PASSWORD` gates both existing-kiosk reclaim and new-kiosk
-creation. `KIOSK_COOKIE_SECRET` signs and verifies the cookie. Both values are
-server-only environment fields; an unset gate or secret produces a clear
-configuration error rather than silently issuing an unsigned cookie.
+creation. `KIOSK_COOKIE_SECRET` signs and verifies the cookie, while
+`KIOSK_COOKIE_SECURE` controls the optional transport flag and defaults to
+`false`. These are server-only environment fields; an unset gate or secret
+produces a clear configuration error rather than silently issuing an unsigned
+cookie.
 
 ## Validation and errors
 
