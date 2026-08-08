@@ -1,6 +1,6 @@
 import { beforeEach, expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
-import { createDatabase } from "../db/client";
+import { createDatabase } from "#/db/client";
 import { checkHealth, type Database, recordPing } from "./example";
 
 let db: Database;

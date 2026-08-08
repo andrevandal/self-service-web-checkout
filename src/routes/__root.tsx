@@ -3,10 +3,10 @@ import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import type { QueryClient } from "@tanstack/react-query";
 
-import TanStackQueryDevtools from "../integrations/tanstack-query/devtools";
-import PostHogProvider from "../integrations/posthog/provider";
+import TanStackQueryDevtools from "#/integrations/tanstack-query/devtools";
+import PostHogProvider from "#/integrations/posthog/provider";
 
-import appCss from "../styles.css?url";
+import appCss from "#/styles.css?url";
 
 type RouterContext = {
   queryClient: QueryClient;

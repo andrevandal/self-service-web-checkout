@@ -1,7 +1,7 @@
 import { loadEnv } from "@vite-env/core/load";
-import { createDatabase } from "../src/db/client";
-import config, { parseServerEnv } from "../src/env";
-import { recordPing } from "../src/lib/example";
+import { createDatabase } from "#/db/client";
+import config, { parseServerEnv } from "#/env";
+import { recordPing } from "#/lib/example";
 
 export const seed = async (url: string) => recordPing(createDatabase(url));
 

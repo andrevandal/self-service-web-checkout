@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { db } from "../../db/client.server";
-import { checkHealth } from "../../lib/example";
+import { db } from "#/db/client.server";
+import { checkHealth } from "#/lib/example";
 
 export const Route = createFileRoute("/api/health")({
   server: {

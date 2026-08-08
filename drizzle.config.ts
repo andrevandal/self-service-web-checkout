@@ -2,7 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { defineConfig } from "drizzle-kit";
 import { loadEnv } from "vite";
-import { parseServerEnv } from "./src/env";
+import { parseServerEnv } from "#/env";
 
 const env = parseServerEnv(loadEnv("development", process.cwd(), ""));
 const databasePath = env.DATABASE_URL.slice("file:".length);

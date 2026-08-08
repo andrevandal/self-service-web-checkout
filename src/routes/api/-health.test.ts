@@ -1,6 +1,6 @@
 import { expect, mock, test } from "bun:test";
 import { sql } from "drizzle-orm";
-import { createDatabase } from "../../db/client";
+import { createDatabase } from "#/db/client";
 
 const db = createDatabase("file::memory:");
 await db.run(
@@ -8,11 +8,11 @@ await db.run(
 );
 await db.run(sql`INSERT INTO pings (created_at) VALUES (${Date.now()})`);
 
+// Import after mocking so the route captures the in-memory database.
 mock.module(import.meta.resolve("../../db/client.server"), () => ({ db }));
 
 test("health route reports database connectivity", async () => {
-  // Import after mocking so the route captures the in-memory database.
-  const { Route } = await import("./health");
+  const { Route } = await import("#/routes/api/health");
   const getHandler = (
     Route.options.server?.handlers as { GET?: () => Promise<Response> } | undefined
   )?.GET;

@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import type { LibSQLDatabase } from "drizzle-orm/libsql";
-import type * as schema from "../db/schema";
-import { pings } from "../db/schema";
+import type * as schema from "#/db/schema";
+import { pings } from "#/db/schema";
 
 export type Database = LibSQLDatabase<typeof schema>;
 export type PingResult = { id: number; createdAt: Date };
