@@ -1,7 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { claimFixtureKiosk } from "./kiosk-claim-helpers";
 
 test("renders the fixed kiosk shell with its design tokens", async ({ page }) => {
-  await page.goto("/");
+  await claimFixtureKiosk(page);
 
   await expect(page.getByTestId("kiosk-header")).toBeVisible();
   await expect(page.getByRole("banner")).toContainText("Warm & Melted");
