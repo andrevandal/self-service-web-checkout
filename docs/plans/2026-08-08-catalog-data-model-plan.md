@@ -37,12 +37,12 @@
 - Create: `src/lib/catalog.functions.test.ts`
 
 **Interfaces:**
-- Consumes: the future `getMenu(): Promise<Menu>` server function from `#/lib/catalog.functions`.
+- Consumes: the future `loadMenu(): Promise<Menu>` extracted handler and public `getMenu` `createServerFn` wrapper from `#/lib/catalog.functions`.
 - Produces: the executable nested response assertions that define the contract for later implementation.
 
 - [ ] **Step 1: Create an isolated database and mock the server client**
 
-Create a `file::memory:` database with `createDatabase`, create the six catalog tables with raw SQL, and mock `#/db/client.server` before importing `getMenu`. The setup must include the production column names and foreign keys, including integer-cent columns and boolean integer columns:
+Create a `file::memory:` database with `createDatabase`, create the six catalog tables with raw SQL, and mock `#/db/client.server` before importing `loadMenu`. The setup must include the production column names and foreign keys, including integer-cent columns and boolean integer columns:
 
 ```ts
 import { expect, mock, test } from "bun:test";
@@ -106,7 +106,7 @@ await db.run(sql`CREATE TABLE addons (
 )`);
 
 mock.module("#/db/client.server", () => ({ db }));
-const { getMenu } = await import("./catalog.functions");
+const { loadMenu } = await import("./catalog.functions");
 ```
 
 - [ ] **Step 2: Insert fixture rows for availability, nesting, and ordering**
@@ -115,10 +115,10 @@ Insert two active categories (`coffee` with display order `1`, `tea` with displa
 
 - [ ] **Step 3: Assert the direct server-function contract**
 
-Call `await getMenu()` directly and assert the exact observable shape:
+Call `await loadMenu()` inside the mocked Start context and assert the exact observable shape. The Bun test executes the extracted handler directly because the Start compiler's RPC transform is not active under plain `bun test`:
 
 ```ts
-const menu = await getMenu();
+const menu = await loadMenu();
 expect(menu.categories.map(({ slug }) => slug)).toEqual(["coffee", "tea"]);
 expect(menu.categories[0]?.products.map(({ slug }) => slug)).toEqual(["latte", "mocha"]);
 expect(menu.categories[0]?.products[0]).toMatchObject({
@@ -291,7 +291,7 @@ Expected: PASS after the schema and seed implementation are present, with no dup
 
 **Interfaces:**
 - Consumes: catalog table exports, `db` from `#/db/client.server`, and the Task 1 fixture contract.
-- Produces: `export type Menu` and `export const getMenu = createServerFn({ method: "GET" }).handler(async (): Promise<Menu> => { /* query and assemble */ })`.
+- Produces: `export type Menu`, `export const loadMenu = async (): Promise<Menu>`, and `export const getMenu = createServerFn({ method: "GET" }).handler(loadMenu)`.
 
 - [ ] **Step 1: Declare the exact serializable `Menu` response type**
 

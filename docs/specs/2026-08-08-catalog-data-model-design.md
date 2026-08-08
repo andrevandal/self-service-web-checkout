@@ -172,11 +172,14 @@ explicit `bun run db:seed` operation.
 
 ## Testing and verification
 
-The colocated catalog server-function test creates an isolated `file::memory:`
-libSQL database, creates the catalog tables, mocks `#/db/client.server` before
-importing the function, and calls `getMenu()` directly. The first test version
-is written and run before the schema, seed, and function exist so it records a
-real red phase.
+The colocated catalog test creates an isolated `file::memory:` libSQL database,
+creates the catalog tables, mocks `#/db/client.server` before importing the
+module, and invokes its exported `loadMenu()` handler directly inside a mocked
+TanStack Start context. `getMenu` remains the public
+`createServerFn({ method: "GET" })` wrapper around that handler; using the
+extracted handler keeps the plain Bun test independent of Start's compile-time
+RPC transform. The first test version is written and run before the schema,
+seed, and handler exist so it records a real red phase.
 
 The passing assertions cover the observable contract: four seeded categories
 and seven products, nested latte variant/addon data, integer-cent pricing,
