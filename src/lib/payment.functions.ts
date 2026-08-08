@@ -8,6 +8,7 @@ import { kioskOrderCounters, kiosks, orders, paymentAttempts } from "#/db/schema
 import { readKioskCookie } from "./kiosk-cookie.server";
 import { getKitchenOrderSnapshot } from "./kitchen.functions";
 import { kitchenEventDispatcher } from "./kitchen-events.server";
+import { captureDomainEvent } from "./posthog.server";
 
 const PAYMENT_ATTEMPT_EXPIRY_MS = 120_000;
 
@@ -86,6 +87,38 @@ export class PaymentAttemptError extends Error {
     this.name = "PaymentAttemptError";
   }
 }
+
+type PaymentOutcomeEvent = {
+  kioskId: string;
+  orderId: string;
+  attemptId: string;
+  amountCents: number;
+  outcome: "approved" | "declined" | "unavailable" | "invalid" | "expired";
+  failureReason?: string;
+  attemptCount: number;
+  elapsedMs: number;
+  orderElapsedMs?: number;
+};
+
+const toPaymentEventProperties = ({
+  kioskId,
+  orderId,
+  attemptId,
+  amountCents,
+  outcome,
+  failureReason,
+  attemptCount,
+  elapsedMs,
+}: PaymentOutcomeEvent) => ({
+  kiosk_id: kioskId,
+  order_id: orderId,
+  attempt_id: attemptId,
+  amount_cents: amountCents,
+  outcome,
+  ...(failureReason ? { failure_reason: failureReason } : {}),
+  attempt_count: attemptCount,
+  elapsed_ms: elapsedMs,
+});
 
 const startPaymentAttemptInputSchema = v.object({
   orderId: v.pipe(v.string(), v.minLength(1)),
@@ -172,7 +205,7 @@ export const startPaymentAttemptHandler = async (
     throw new PaymentAttemptError("kiosk_identity", "A valid kiosk session is required");
   }
 
-  return db.transaction(async (tx) => {
+  const transactionResult = await db.transaction(async (tx) => {
     const [kiosk] = await tx
       .select({ id: kiosks.id })
       .from(kiosks)
@@ -188,6 +221,7 @@ export const startPaymentAttemptHandler = async (
         kioskId: orders.kioskId,
         status: orders.status,
         totalAmountCents: orders.totalAmountCents,
+        createdAt: orders.createdAt,
       })
       .from(orders)
       .where(eq(orders.id, data.orderId))
@@ -199,6 +233,10 @@ export const startPaymentAttemptHandler = async (
       );
     }
 
+    const previousAttempts = await tx
+      .select({ id: paymentAttempts.id })
+      .from(paymentAttempts)
+      .where(eq(paymentAttempts.orderId, order.id));
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + PAYMENT_ATTEMPT_EXPIRY_MS);
     const id = randomUUID();
@@ -216,14 +254,34 @@ export const startPaymentAttemptHandler = async (
     });
 
     return {
-      id,
-      orderId: order.id,
-      status: "pending",
-      terminalCommand,
-      expectedAmountCents: order.totalAmountCents,
-      expiresAt: expiresAt.toISOString(),
+      result: {
+        id,
+        orderId: order.id,
+        status: "pending" as const,
+        terminalCommand,
+        expectedAmountCents: order.totalAmountCents,
+        expiresAt: expiresAt.toISOString(),
+      },
+      kioskId: kiosk.id,
+      orderCreatedAt: order.createdAt,
+      createdAt,
+      attemptCount: previousAttempts.length + 1,
     };
   });
+
+  captureDomainEvent("payment_attempt_started", transactionResult.kioskId, {
+    kiosk_id: transactionResult.kioskId,
+    order_id: transactionResult.result.orderId,
+    attempt_id: transactionResult.result.id,
+    amount_cents: transactionResult.result.expectedAmountCents,
+    attempt_count: transactionResult.attemptCount,
+    elapsed_ms: Math.max(
+      0,
+      transactionResult.createdAt.getTime() - transactionResult.orderCreatedAt.getTime(),
+    ),
+  });
+
+  return transactionResult.result;
 };
 
 export const expirePaymentAttemptHandler = async (
@@ -240,7 +298,7 @@ export const expirePaymentAttemptHandler = async (
     throw new PaymentAttemptError("kiosk_identity", "A valid kiosk session is required");
   }
 
-  return db.transaction(async (tx) => {
+  const transactionResult = await db.transaction(async (tx) => {
     const [kiosk] = await tx
       .select({ id: kiosks.id })
       .from(kiosks)
@@ -256,8 +314,10 @@ export const expirePaymentAttemptHandler = async (
         orderId: orders.id,
         orderKioskId: orders.kioskId,
         orderStatus: orders.status,
+        orderCreatedAt: orders.createdAt,
         attemptStatus: paymentAttempts.status,
         expectedAmountCents: paymentAttempts.expectedAmountCents,
+        attemptCreatedAt: paymentAttempts.createdAt,
       })
       .from(paymentAttempts)
       .innerJoin(orders, eq(paymentAttempts.orderId, orders.id))
@@ -280,21 +340,57 @@ export const expirePaymentAttemptHandler = async (
       throw new PaymentAttemptError("order_not_pending", "Order is no longer pending payment");
     }
 
-    await expireAttemptInTransaction(tx, attempt.id, attempt.orderId, new Date(), true);
+    const now = new Date();
+    const attemptCount = await tx
+      .select({ id: paymentAttempts.id })
+      .from(paymentAttempts)
+      .where(eq(paymentAttempts.orderId, attempt.orderId));
+    await expireAttemptInTransaction(tx, attempt.id, attempt.orderId, now, true);
 
     return {
-      attemptId: attempt.id,
-      orderId: attempt.orderId,
-      attemptStatus: "expired",
-      orderStatus: "expired",
-      amountCents: attempt.expectedAmountCents,
+      result: {
+        attemptId: attempt.id,
+        orderId: attempt.orderId,
+        attemptStatus: "expired" as const,
+        orderStatus: "expired" as const,
+        amountCents: attempt.expectedAmountCents,
+      },
+      event: {
+        kioskId: attempt.orderKioskId,
+        orderId: attempt.orderId,
+        attemptId: attempt.id,
+        amountCents: attempt.expectedAmountCents,
+        outcome: "expired" as const,
+        failureReason: "client_idle_timeout",
+        attemptCount: attemptCount.length,
+        elapsedMs: Math.max(0, now.getTime() - attempt.attemptCreatedAt.getTime()),
+        orderElapsedMs: Math.max(0, now.getTime() - attempt.orderCreatedAt.getTime()),
+      },
     };
   });
+
+  captureDomainEvent(
+    "payment_attempt_result",
+    transactionResult.event.kioskId,
+    toPaymentEventProperties(transactionResult.event),
+  );
+  captureDomainEvent("order_expired", transactionResult.event.kioskId, {
+    kiosk_id: transactionResult.event.kioskId,
+    order_id: transactionResult.event.orderId,
+    attempt_id: transactionResult.event.attemptId,
+    amount_cents: transactionResult.event.amountCents,
+    outcome: "expired",
+    failure_reason: "client_idle_timeout",
+    attempt_count: transactionResult.event.attemptCount,
+    elapsed_ms: transactionResult.event.orderElapsedMs ?? transactionResult.event.elapsedMs,
+  });
+
+  return transactionResult.result;
 };
 
 type ReconcileTransactionResult =
-  | { kind: "result"; value: ReconcilePaymentAttemptResult }
-  | { kind: "terminal-error"; error: PaymentAttemptError };
+  | { kind: "result"; value: ReconcilePaymentAttemptResult; event: PaymentOutcomeEvent }
+  | { kind: "terminal-error"; error: PaymentAttemptError; event: PaymentOutcomeEvent };
 
 export const reconcilePaymentAttemptHandler = async (
   input: ReconcilePaymentAttemptInput,
@@ -326,11 +422,13 @@ export const reconcilePaymentAttemptHandler = async (
         orderId: orders.id,
         orderKioskId: orders.kioskId,
         orderStatus: orders.status,
+        orderCreatedAt: orders.createdAt,
         kioskPrefix: kiosks.prefix,
         attemptStatus: paymentAttempts.status,
         terminalCommand: paymentAttempts.terminalCommand,
         expectedAmountCents: paymentAttempts.expectedAmountCents,
         expiresAt: paymentAttempts.expiresAt,
+        attemptCreatedAt: paymentAttempts.createdAt,
       })
       .from(paymentAttempts)
       .innerJoin(orders, eq(paymentAttempts.orderId, orders.id))
@@ -355,11 +453,24 @@ export const reconcilePaymentAttemptHandler = async (
     }
 
     const now = new Date();
+    const attemptCount = await tx
+      .select({ id: paymentAttempts.id })
+      .from(paymentAttempts)
+      .where(eq(paymentAttempts.orderId, attempt.orderId));
+    const eventBase = {
+      kioskId: attempt.orderKioskId,
+      orderId: attempt.orderId,
+      attemptId: attempt.id,
+      amountCents: attempt.expectedAmountCents,
+      attemptCount: attemptCount.length,
+      elapsedMs: Math.max(0, now.getTime() - attempt.attemptCreatedAt.getTime()),
+    };
     if (now.getTime() >= attempt.expiresAt.getTime()) {
       await expireAttemptInTransaction(tx, attempt.id, attempt.orderId, now, false);
       return {
         kind: "terminal-error",
         error: new PaymentAttemptError("attempt_expired", "Payment attempt has expired"),
+        event: { ...eventBase, outcome: "expired" as const, failureReason: "expired" },
       };
     }
 
@@ -374,6 +485,7 @@ export const reconcilePaymentAttemptHandler = async (
       return {
         kind: "terminal-error",
         error: new PaymentAttemptError("receipt_invalid", "Payment receipt does not match attempt"),
+        event: { ...eventBase, outcome: "invalid" as const, failureReason: "receipt_invalid" },
       };
     }
 
@@ -392,6 +504,11 @@ export const reconcilePaymentAttemptHandler = async (
           orderNumber: null,
           amountCents: attempt.expectedAmountCents,
           reference: data.receipt.reference,
+        },
+        event: {
+          ...eventBase,
+          outcome: data.receipt.outcome,
+          failureReason: data.receipt.outcome,
         },
       };
     }
@@ -440,14 +557,31 @@ export const reconcilePaymentAttemptHandler = async (
         amountCents: attempt.expectedAmountCents,
         reference: data.receipt.reference,
       },
+      event: { ...eventBase, outcome: "approved" as const },
     };
   });
+
+  captureDomainEvent(
+    "payment_attempt_result",
+    transactionResult.event.kioskId,
+    toPaymentEventProperties(transactionResult.event),
+  );
 
   if (transactionResult.kind === "terminal-error") {
     throw transactionResult.error;
   }
 
   if (transactionResult.value.orderStatus === "paid" && transactionResult.value.orderNumber) {
+    captureDomainEvent("order_paid", transactionResult.event.kioskId, {
+      kiosk_id: transactionResult.event.kioskId,
+      order_id: transactionResult.event.orderId,
+      attempt_id: transactionResult.event.attemptId,
+      amount_cents: transactionResult.event.amountCents,
+      outcome: "approved",
+      attempt_count: transactionResult.event.attemptCount,
+      elapsed_ms: transactionResult.event.elapsedMs,
+    });
+
     const order = await getKitchenOrderSnapshot(transactionResult.value.orderId);
     if (!order) {
       throw new Error("Paid order snapshot could not be loaded");

@@ -12,6 +12,7 @@ import {
   type KitchenOrderEvent,
   type OrderStatusEvent,
 } from "./kitchen-events.server";
+import { captureDomainEvent } from "./posthog.server";
 
 export type ClaimStaffSessionInput = {
   password: string;
@@ -263,7 +264,14 @@ export const advanceOrderHandler = async (input: AdvanceOrderInput): Promise<Ord
   const data = validateAdvanceOrderInput(input);
   const transition = await db.transaction(async (tx) => {
     const [order] = await tx
-      .select({ id: orders.id, orderNumber: orders.orderNumber, status: orders.status })
+      .select({
+        id: orders.id,
+        orderNumber: orders.orderNumber,
+        status: orders.status,
+        kioskId: orders.kioskId,
+        totalAmountCents: orders.totalAmountCents,
+        createdAt: orders.createdAt,
+      })
       .from(orders)
       .where(eq(orders.id, data.orderId))
       .limit(1);
@@ -286,15 +294,29 @@ export const advanceOrderHandler = async (input: AdvanceOrderInput): Promise<Ord
     }
 
     return {
-      type: data.toStatus === "preparing" ? "order.preparing" : "order.done",
-      orderId: updated.id,
-      orderNumber: updated.orderNumber,
-      status: data.toStatus,
-    } as OrderStatusEvent;
+      event: {
+        type: data.toStatus === "preparing" ? "order.preparing" : "order.done",
+        orderId: updated.id,
+        orderNumber: updated.orderNumber,
+        status: data.toStatus,
+      } as OrderStatusEvent,
+      kioskId: order.kioskId,
+      amountCents: order.totalAmountCents,
+      createdAt: order.createdAt,
+    };
   });
 
-  kitchenEventDispatcher.emit(transition);
-  return transition;
+  const eventName =
+    transition.event.status === "preparing" ? "kitchen_order_started" : "kitchen_order_done";
+  captureDomainEvent(eventName, transition.kioskId, {
+    kiosk_id: transition.kioskId,
+    order_id: transition.event.orderId,
+    amount_cents: transition.amountCents,
+    outcome: transition.event.status,
+    elapsed_ms: Math.max(0, Date.now() - transition.createdAt.getTime()),
+  });
+  kitchenEventDispatcher.emit(transition.event);
+  return transition.event;
 };
 
 export const claimStaffSession = createServerFn({ method: "POST" })

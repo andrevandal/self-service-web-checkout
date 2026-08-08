@@ -73,6 +73,11 @@ await db.insert(addons).values({
 
 let requestCookie = "";
 let setCookieHeader = "";
+const capturedDomainEvents: Array<{
+  event: string;
+  distinctId: string;
+  properties: Record<string, unknown>;
+}> = [];
 mockDatabaseModule(db);
 mock.module("#/env.server", () => ({
   serverEnv: {
@@ -81,6 +86,12 @@ mock.module("#/env.server", () => ({
     KIOSK_COOKIE_SECURE: false,
     STAFF_COOKIE_SECRET: "staff-secret",
     STAFF_COOKIE_SECURE: false,
+    POSTHOG_KEY: "",
+  },
+}));
+mock.module("./posthog.server", () => ({
+  captureDomainEvent: (event: string, distinctId: string, properties: Record<string, unknown>) => {
+    capturedDomainEvents.push({ event, distinctId, properties });
   },
 }));
 mock.module("@tanstack/react-start/server", () => ({
@@ -172,6 +183,7 @@ const insertOrderItem = async (orderId: string) => {
 beforeEach(async () => {
   requestCookie = "";
   setCookieHeader = "";
+  capturedDomainEvents.length = 0;
   await db.delete(orderItemVariants);
   await db.delete(orderItemAddons);
   await db.delete(orderItems);
@@ -398,4 +410,30 @@ test("claim and queue functions reject malformed input", async () => {
   ).rejects.toMatchObject({ code: "invalid_input" });
   expect(KitchenOrderError).toBeDefined();
   expect(StaffSessionError).toBeDefined();
+});
+
+test("captures kitchen transition outcomes after commit", async () => {
+  const orderId = await insertOrder({ id: "order-kitchen-analytics" });
+  setStaffCookie();
+
+  await withStartContext(() => advanceOrderHandler({ orderId, toStatus: "preparing" }));
+  await withStartContext(() => advanceOrderHandler({ orderId, toStatus: "done" }));
+
+  expect(capturedDomainEvents.map(({ event }) => event)).toEqual([
+    "kitchen_order_started",
+    "kitchen_order_done",
+  ]);
+  expect(capturedDomainEvents.every(({ distinctId }) => distinctId === "kiosk-a")).toBe(true);
+  expect(capturedDomainEvents[0]?.properties).toMatchObject({
+    kiosk_id: "kiosk-a",
+    order_id: orderId,
+    amount_cents: 1_000,
+    outcome: "preparing",
+  });
+  expect(capturedDomainEvents[1]?.properties).toMatchObject({
+    kiosk_id: "kiosk-a",
+    order_id: orderId,
+    amount_cents: 1_000,
+    outcome: "done",
+  });
 });

@@ -28,6 +28,8 @@ const serverEnvFields = {
     v.optional(v.union([v.boolean(), v.string()]), false),
     v.transform((value) => (typeof value === "string" ? value === "true" : value)),
   ),
+  POSTHOG_KEY: v.optional(v.string(), ""),
+  POSTHOG_HOST: v.optional(v.string(), ""),
 };
 
 const clientEnvFields = {

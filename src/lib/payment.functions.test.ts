@@ -13,9 +13,19 @@ await db.run(sql`
 `);
 
 let requestCookie = "";
+const capturedDomainEvents: Array<{
+  event: string;
+  distinctId: string;
+  properties: Record<string, unknown>;
+}> = [];
 mockDatabaseModule(db);
 mock.module("#/env.server", () => ({
-  serverEnv: { KIOSK_COOKIE_SECRET: "cookie-secret" },
+  serverEnv: { KIOSK_COOKIE_SECRET: "cookie-secret", POSTHOG_KEY: "" },
+}));
+mock.module("./posthog.server", () => ({
+  captureDomainEvent: (event: string, distinctId: string, properties: Record<string, unknown>) => {
+    capturedDomainEvents.push({ event, distinctId, properties });
+  },
 }));
 mock.module("@tanstack/react-start/server", () => ({
   getRequestHeader: () => requestCookie,
@@ -79,6 +89,7 @@ const currentServiceDate = () =>
 
 beforeEach(async () => {
   setKioskCookie("kiosk-a");
+  capturedDomainEvents.length = 0;
   await db.delete(paymentAttempts);
   await db.delete(orders);
   await db.delete(kioskOrderCounters);
@@ -389,6 +400,7 @@ test("explicit expiry resolves the attempt and order and blocks reconciliation",
   ).toEqual([{ status: "expired" }]);
   expect(
     await db
+
       .select({ status: paymentAttempts.status })
       .from(paymentAttempts)
       .where(eq(paymentAttempts.id, attempt.id)),
@@ -402,4 +414,74 @@ test("explicit expiry resolves the attempt and order and blocks reconciliation",
       }),
     ),
   ).rejects.toMatchObject({ code: "attempt_resolved" });
+});
+test("captures payment domain outcomes without exposing terminal data", async () => {
+  const startedOrderId = await insertPendingOrder({ id: "order-started-event" });
+  await withStartContext(() => startPaymentAttemptHandler({ orderId: startedOrderId }));
+  expect(capturedDomainEvents.map(({ event }) => event)).toEqual(["payment_attempt_started"]);
+
+  const declinedOrderId = await insertPendingOrder({ id: "order-declined-event" });
+  const declinedAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId: declinedOrderId }),
+  );
+  await withStartContext(() =>
+    reconcilePaymentAttemptHandler({
+      attemptId: declinedAttempt.id,
+      receipt: {
+        ...approvedReceipt(declinedAttempt),
+        outcome: "declined",
+        reference: "declined-reference",
+      },
+    }),
+  );
+
+  const approvedOrderId = await insertPendingOrder({ id: "order-approved-event" });
+  const approvedAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId: approvedOrderId }),
+  );
+  await withStartContext(() =>
+    reconcilePaymentAttemptHandler({
+      attemptId: approvedAttempt.id,
+      receipt: approvedReceipt(approvedAttempt, { reference: "approved-reference" }),
+    }),
+  );
+
+  const expiredOrderId = await insertPendingOrder({ id: "order-safety-expired-event" });
+  const expiredAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId: expiredOrderId }),
+  );
+  await db
+    .update(paymentAttempts)
+    .set({ expiresAt: new Date(0) })
+    .where(eq(paymentAttempts.id, expiredAttempt.id));
+  await expect(
+    withStartContext(() =>
+      reconcilePaymentAttemptHandler({
+        attemptId: expiredAttempt.id,
+        receipt: approvedReceipt(expiredAttempt),
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "attempt_expired" });
+
+  const explicitOrderId = await insertPendingOrder({ id: "order-explicit-expired-event" });
+  const explicitAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId: explicitOrderId }),
+  );
+  await withStartContext(() => expirePaymentAttemptHandler({ attemptId: explicitAttempt.id }));
+
+  expect(capturedDomainEvents.map(({ event }) => event)).toEqual([
+    "payment_attempt_started",
+    "payment_attempt_started",
+    "payment_attempt_result",
+    "payment_attempt_started",
+    "payment_attempt_result",
+    "order_paid",
+    "payment_attempt_started",
+    "payment_attempt_result",
+    "payment_attempt_started",
+    "payment_attempt_result",
+    "order_expired",
+  ]);
+  expect(capturedDomainEvents.every(({ distinctId }) => distinctId === "kiosk-a")).toBe(true);
+  expect(capturedDomainEvents.every(({ properties }) => !("receipt" in properties))).toBe(true);
 });
