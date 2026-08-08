@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1786057820143,
+      "tag": "0000_normal_smiling_tiger",
+      "breakpoints": true
+    }
+  ]
+}

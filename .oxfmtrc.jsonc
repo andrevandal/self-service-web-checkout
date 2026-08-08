@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "printWidth": 100,
+  "semi": true,
+  "singleQuote": false,
+  "ignorePatterns": [
+    "src/routeTree.gen.ts",
+    "vite-env.d.ts",
+    "README.md",
+    ".cta.json",
+    "docs/**/*.md",
+    ".agents/skills/**",
+  ],
+}
