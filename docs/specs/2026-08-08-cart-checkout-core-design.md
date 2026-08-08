@@ -189,9 +189,12 @@ immutable attempt/order transitions owned by spec 4.
 ## Testing and verification
 
 The colocated `src/lib/order.functions.test.ts` uses the shared
-`createTestDatabase`, `mockDatabaseModule`, and `withStartContext` helpers. The
-first draft runs against the not-yet-implemented handler to establish a real
-red phase. Tests then cover a valid pending order, live price calculation,
+`createTestDatabase`, `mockDatabaseModule`, and `withStartContext` helpers. It
+passes a unique temporary file-backed SQLite URL to `createTestDatabase` so the
+transaction connection and the assertion connection observe the same database;
+the default `file::memory:` URL is connection-local with libSQL transactions.
+The first draft runs against the not-yet-implemented handler to establish a
+real red phase. Tests then cover a valid pending order, live price calculation,
 product/modifier name and price snapshots, null order number, no counter
 allocation, signed-cookie kiosk ownership, empty/zero carts, unavailable
 catalog rows, selection-bound failures, and rollback/no partial rows.
