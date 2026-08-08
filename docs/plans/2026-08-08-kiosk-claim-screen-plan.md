@@ -120,13 +120,14 @@ import { describe, expect, test } from "bun:test";
 import { normalizePrefix } from "./kiosk-session";
 
 describe("normalizePrefix", () => {
-  test("trims and uppercases a one-to-four character prefix", () => {
-    expect(normalizePrefix(" ab ")).toBe("AB");
+  test("trims and uppercases a one-to-five character alphanumeric prefix", () => {
+    expect(normalizePrefix(" p1 ")).toBe("P1");
   });
 
-  test("rejects empty and non-letter prefixes", () => {
+  test("rejects empty, overlong, and non-alphanumeric prefixes", () => {
     expect(normalizePrefix(" ")).toBeNull();
-    expect(normalizePrefix("A1")).toBeNull();
+    expect(normalizePrefix("ABCDEF")).toBeNull();
+    expect(normalizePrefix("A-")).toBeNull();
   });
 });
 ```
@@ -160,7 +161,7 @@ export const claimKiosk = createServerFn({ method: "POST" })
   .handler(...);
 ```
 
-Seed the local adapter with deterministic `Front counter` (`A`) and `Drive through` (`D`) fixtures and the `warm-melted` setup password. Keep the kiosk store module-local. `claimKiosk` validates the discriminated input, rejects duplicate prefixes, claims an existing kiosk by id or creates a named kiosk with the requested/next available prefix, sets `kiosk_session=<opaque token>; HttpOnly; SameSite=Lax; Path=/`, and returns the `Kiosk`. `getKioskSession` reads the request cookie and resolves the token to the claimed kiosk. Throw an error carrying `code` from `KioskClaimErrorCode`; the UI maps that code to copy. `normalizePrefix` returns an uppercase 1–4 letter prefix or `null`.
+Seed the local adapter with deterministic `Front counter` (`A`) and `Drive through` (`D`) fixtures and the `warm-melted` setup password. Keep the kiosk store module-local. `claimKiosk` validates the discriminated input, rejects duplicate prefixes, claims an existing kiosk by id or creates a named kiosk with the requested/next available prefix, sets `kiosk_session=<opaque token>; HttpOnly; SameSite=Lax; Path=/`, and returns the `Kiosk`. `getKioskSession` reads the request cookie and resolves the token to the claimed kiosk. Throw an error carrying `code` from `KioskClaimErrorCode`; the UI maps that code to copy. `normalizePrefix` returns an uppercase 1–5 ASCII alphanumeric prefix or `null`.
 
 - [ ] **Step 4: Run the focused unit test and verify it passes.**
 
