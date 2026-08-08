@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
 import { getRequestHeader, setResponseHeader } from "@tanstack/react-start/server";
+import { signSignedCookie, verifySignedCookie } from "./signed-cookie.server";
 
 export const KIOSK_COOKIE_NAME = "kiosk_session";
 
@@ -8,15 +8,8 @@ type KioskCookiePayload = {
   issuedAt: number;
 };
 
-const encode = (value: string) => Buffer.from(value).toString("base64url");
-
-const decode = (value: string) => Buffer.from(value, "base64url").toString("utf8");
-
-export const signKioskCookie = (payload: KioskCookiePayload, secret: string): string => {
-  const encodedPayload = encode(JSON.stringify(payload));
-  const signature = createHmac("sha256", secret).update(encodedPayload).digest("base64url");
-  return `${encodedPayload}.${signature}`;
-};
+export const signKioskCookie = (payload: KioskCookiePayload, secret: string): string =>
+  signSignedCookie(payload, secret);
 
 const isKioskCookiePayload = (value: unknown): value is KioskCookiePayload => {
   if (typeof value !== "object" || value === null) {
@@ -33,33 +26,8 @@ const isKioskCookiePayload = (value: unknown): value is KioskCookiePayload => {
   );
 };
 
-export const verifyKioskCookie = (token: string, secret: string): KioskCookiePayload | null => {
-  const segments = token.split(".");
-  if (segments.length !== 2) {
-    return null;
-  }
-
-  const [encodedPayload, encodedSignature] = segments;
-  if (!encodedPayload || !encodedSignature) {
-    return null;
-  }
-
-  const expectedSignature = createHmac("sha256", secret).update(encodedPayload).digest();
-  const actualSignature = Buffer.from(encodedSignature, "base64url");
-  if (
-    actualSignature.length !== expectedSignature.length ||
-    !timingSafeEqual(actualSignature, expectedSignature)
-  ) {
-    return null;
-  }
-
-  try {
-    const payload: unknown = JSON.parse(decode(encodedPayload));
-    return isKioskCookiePayload(payload) ? payload : null;
-  } catch {
-    return null;
-  }
-};
+export const verifyKioskCookie = (token: string, secret: string): KioskCookiePayload | null =>
+  verifySignedCookie(token, secret, isKioskCookiePayload);
 
 export const readKioskCookie = (secret: string): KioskCookiePayload | null => {
   const header = getRequestHeader("cookie");

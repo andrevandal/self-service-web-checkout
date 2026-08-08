@@ -6,6 +6,8 @@ import { serverEnv } from "#/env.server";
 import { db } from "#/db/client.server";
 import { kioskOrderCounters, kiosks, orders, paymentAttempts } from "#/db/schema";
 import { readKioskCookie } from "./kiosk-cookie.server";
+import { getKitchenOrderSnapshot } from "./kitchen.functions";
+import { kitchenEventDispatcher } from "./kitchen-events.server";
 
 const PAYMENT_ATTEMPT_EXPIRY_MS = 120_000;
 
@@ -329,6 +331,21 @@ export const reconcilePaymentAttemptHandler = async (
   if (transactionResult.kind === "terminal-error") {
     throw transactionResult.error;
   }
+
+  if (transactionResult.value.orderStatus === "paid" && transactionResult.value.orderNumber) {
+    const order = await getKitchenOrderSnapshot(transactionResult.value.orderId);
+    if (!order) {
+      throw new Error("Paid order snapshot could not be loaded");
+    }
+    kitchenEventDispatcher.emit({
+      type: "order.paid",
+      orderId: order.id,
+      orderNumber: order.orderNumber,
+      status: "paid",
+      order,
+    });
+  }
+
   return transactionResult.value;
 };
 

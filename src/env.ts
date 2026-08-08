@@ -23,6 +23,11 @@ const serverEnvFields = {
     v.optional(v.union([v.boolean(), v.string()]), false),
     v.transform((value) => (typeof value === "string" ? value === "true" : value)),
   ),
+  STAFF_COOKIE_SECRET: v.optional(v.string(), ""),
+  STAFF_COOKIE_SECURE: v.pipe(
+    v.optional(v.union([v.boolean(), v.string()]), false),
+    v.transform((value) => (typeof value === "string" ? value === "true" : value)),
+  ),
 };
 
 const clientEnvFields = {
