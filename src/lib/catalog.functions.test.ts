@@ -103,3 +103,33 @@ test("getMenu returns the active catalog in a nested deterministic shape", async
   expect(JSON.stringify(menu)).not.toContain("hidden-product");
   expect(JSON.stringify(menu)).not.toContain("inactive-addon");
 });
+
+test("getMenu returns no categories when no active categories exist", async () => {
+  await db.run(sql`DELETE FROM categories`);
+  await expect(withStartContext(() => loadMenu())).resolves.toEqual({ categories: [] });
+});
+
+test("getMenu returns active categories with empty products when none are available", async () => {
+  await db.run(sql`
+    INSERT INTO categories (id, slug, name, display_order, is_active)
+    VALUES ('category-empty', 'empty', 'Empty', 1, 1)
+  `);
+  await db.run(sql`
+    INSERT INTO products
+      (id, category_id, slug, name, description, base_price_cents, image_url, is_available)
+    VALUES
+      ('product-unavailable-only', 'category-empty', 'unavailable-only', 'Unavailable only', NULL, 100, NULL, 0)
+  `);
+
+  await expect(withStartContext(() => loadMenu())).resolves.toEqual({
+    categories: [
+      {
+        id: "category-empty",
+        slug: "empty",
+        name: "Empty",
+        displayOrder: 1,
+        products: [],
+      },
+    ],
+  });
+});

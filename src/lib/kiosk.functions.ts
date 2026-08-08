@@ -67,7 +67,9 @@ const normalizePrefix = (prefix: string) => prefix.trim().toUpperCase();
 
 const generatedPrefixCandidates = (name: string): string[] => {
   const normalized = name.toUpperCase().replace(/[^A-Z0-9]/g, "");
-  if (!normalized) {return [];}
+  if (!normalized) {
+    return [];
+  }
 
   const candidates: string[] = [];
   for (let length = 1; length <= Math.min(5, normalized.length); length += 1) {
@@ -75,7 +77,9 @@ const generatedPrefixCandidates = (name: string): string[] => {
   }
   for (let number = 1; number <= 999; number += 1) {
     const suffix = String(number);
-    if (suffix.length >= 5) {break;}
+    if (suffix.length >= 5) {
+      break;
+    }
     candidates.push(`${normalized.slice(0, 5 - suffix.length)}${suffix}`);
   }
   return candidates;
@@ -102,7 +106,9 @@ const selectPrefix = async (name: string, requestedPrefix?: string) => {
     (await db.select({ prefix: kiosks.prefix }).from(kiosks)).map(({ prefix }) => prefix),
   );
   for (const candidate of generatedPrefixCandidates(name)) {
-    if (!existingPrefixes.has(candidate)) {return candidate;}
+    if (!existingPrefixes.has(candidate)) {
+      return candidate;
+    }
   }
   throw new KioskClaimError("invalid_input", "Unable to derive a unique kiosk prefix");
 };

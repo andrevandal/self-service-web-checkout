@@ -7,8 +7,8 @@ type MigrationJournal = {
   entries: Array<{ tag: string }>;
 };
 
-export const createTestDatabase = async () => {
-  const db = createDatabase("file::memory:");
+export const createTestDatabase = async (url = "file::memory:") => {
+  const db = createDatabase(url);
   await db.run(sql`PRAGMA foreign_keys = ON`);
 
   const journalUrl = new URL("../../drizzle/meta/_journal.json", import.meta.url);
