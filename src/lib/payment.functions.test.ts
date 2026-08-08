@@ -23,8 +23,12 @@ mock.module("@tanstack/react-start/server", () => ({
 }));
 
 const { signKioskCookie } = await import("./kiosk-cookie.server");
-const { PaymentAttemptError, reconcilePaymentAttemptHandler, startPaymentAttemptHandler } =
-  await import("./payment.functions");
+const {
+  PaymentAttemptError,
+  expirePaymentAttemptHandler,
+  reconcilePaymentAttemptHandler,
+  startPaymentAttemptHandler,
+} = await import("./payment.functions");
 
 const setKioskCookie = (kioskId: string) => {
   requestCookie = `kiosk_session=${signKioskCookie(
@@ -363,4 +367,39 @@ test("input validation rejects malformed attempt and receipt data", async () => 
       }),
     ),
   ).rejects.toMatchObject({ code: "invalid_input" });
+});
+
+test("explicit expiry resolves the attempt and order and blocks reconciliation", async () => {
+  const orderId = await insertPendingOrder({ id: "order-expire" });
+  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+
+  const result = await withStartContext(() =>
+    expirePaymentAttemptHandler({ attemptId: attempt.id }),
+  );
+
+  expect(result).toEqual({
+    attemptId: attempt.id,
+    orderId,
+    attemptStatus: "expired",
+    orderStatus: "expired",
+    amountCents: 1_250,
+  });
+  expect(
+    await db.select({ status: orders.status }).from(orders).where(eq(orders.id, orderId)),
+  ).toEqual([{ status: "expired" }]);
+  expect(
+    await db
+      .select({ status: paymentAttempts.status })
+      .from(paymentAttempts)
+      .where(eq(paymentAttempts.id, attempt.id)),
+  ).toEqual([{ status: "expired" }]);
+
+  await expect(
+    withStartContext(() =>
+      reconcilePaymentAttemptHandler({
+        attemptId: attempt.id,
+        receipt: approvedReceipt(attempt),
+      }),
+    ),
+  ).rejects.toMatchObject({ code: "attempt_resolved" });
 });
