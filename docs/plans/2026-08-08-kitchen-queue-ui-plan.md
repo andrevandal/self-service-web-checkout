@@ -358,6 +358,7 @@ useEffect(() => {
 ```
 
 Add a global TypeScript declaration for `__kitchenInjectEvent` accepting `KitchenEvent`. Do not make the production stream depend on the test hook; both paths call `applyKitchenEvent` through the same callback.
+The backend emits named SSE frames (`event: order.paid`, `event: order.preparing`, and `event: order.done`), so do not use `source.onmessage`; register and remove one listener for each event name as shown above.
 
 - [ ] **Step 5: Add the route and regenerate the route tree**
 
