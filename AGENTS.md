@@ -14,10 +14,30 @@ bun run build
 
 ## Documentation, specifications, and tests
 
-- Follow docs-first: update the document that describes a changed behavior before or alongside the code.
-- Follow spec-first: record a design/spec decision before implementation when the change introduces behavior or interfaces.
-- Follow test-driven development: write a failing test, verify RED, implement the smallest change, verify GREEN, then refactor.
-- Keep colocated tests focused on observable behavior and run the narrowest relevant check while iterating.
+- Design specs live at `docs/specs/YYYY-MM-DD-<topic>-design.md` (flat —
+  not `docs/superpowers/specs/`, even though the brainstorming skill
+  defaults there).
+- Each spec starts with a `## Contents` section linking every `##` heading
+  in the document, kept in sync when headings change.
+- **Docs-first, not docs-eventually**: `README.md`, `docs/deployment.md`,
+  this file, `CHANGELOG.md`, and `docs/specs/*` are written _before or
+  alongside_ the code they describe, never deferred to a follow-up.
+- **Keep docs current**: a PR that changes behavior a doc describes
+  updates that doc in the **same PR**. Stale docs are a bug, not cleanup
+  debt — treat them accordingly.
+- Keep colocated tests focused on observable behavior and run the
+  narrowest relevant check while iterating.
+
+## Development workflow
+
+- **Spec-driven**: non-trivial changes start as a design spec
+  (`docs/specs/YYYY-MM-DD-<topic>-design.md`), then an implementation
+  plan (`docs/plans/YYYY-MM-DD-<topic>-plan.md`, same flat convention as
+  specs). Both are committed artifacts, kept updated alongside the code
+  they describe — not scratch notes.
+- **Test-driven**: tests are drafted before the implementation they
+  cover — red, then green, then refactor — for unit, API-e2e, and
+  browser-e2e work alike.
 
 ## Commits and hooks
 
