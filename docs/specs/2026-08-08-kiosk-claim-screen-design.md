@@ -33,6 +33,7 @@ The root route owns the gate and renders one of two branches:
 
 The UI calls a small local adapter, `src/lib/kiosk-session.ts`, rather than coupling components to the unfinished backend module. The adapter exposes typed async operations matching the backend contract:
 
+- `getKioskSession()` reads the signed kiosk cookie and returns the current kiosk identity or `null`.
 - `listKiosks({ password })` returns all kiosk summaries after validating the shared password.
 - `claimKiosk({ password, kioskId })` claims/reclaims an existing kiosk.
 - `claimKiosk({ password, name, prefix })` creates and claims a new kiosk.
