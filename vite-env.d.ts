@@ -19,6 +19,11 @@ declare module 'virtual:env/server' {
   const env: {
     readonly DATABASE_URL: string
     readonly PORT: string
+    readonly KIOSK_CLAIM_PASSWORD: string
+    readonly KIOSK_COOKIE_SECRET: string
+    readonly KIOSK_COOKIE_SECURE: string
+    readonly STAFF_COOKIE_SECRET: string
+    readonly STAFF_COOKIE_SECURE: string
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
   }
