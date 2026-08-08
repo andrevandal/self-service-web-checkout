@@ -1,63 +1,8 @@
-import { expect, mock, test } from "bun:test";
-import { runWithStartContext } from "@tanstack/start-storage-context";
+import { expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
-import { createDatabase } from "#/db/client";
+import { createTestDatabase, mockDatabaseModule, withStartContext } from "#/test/db-test-support";
 
-const db = createDatabase("file::memory:");
-await db.run(sql`PRAGMA foreign_keys = ON`);
-await db.run(sql`CREATE TABLE categories (
-  id TEXT PRIMARY KEY NOT NULL,
-  slug TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  display_order INTEGER NOT NULL DEFAULT 0,
-  is_active INTEGER NOT NULL DEFAULT 1
-)`);
-await db.run(sql`CREATE TABLE products (
-  id TEXT PRIMARY KEY NOT NULL,
-  category_id TEXT NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL UNIQUE,
-  name TEXT NOT NULL,
-  description TEXT,
-  base_price_cents INTEGER NOT NULL,
-  image_url TEXT,
-  is_available INTEGER NOT NULL DEFAULT 1
-)`);
-await db.run(sql`CREATE TABLE variant_groups (
-  id TEXT PRIMARY KEY NOT NULL,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL,
-  name TEXT NOT NULL,
-  min_selections INTEGER NOT NULL DEFAULT 1,
-  max_selections INTEGER NOT NULL DEFAULT 1,
-  UNIQUE(product_id, slug)
-)`);
-await db.run(sql`CREATE TABLE variant_options (
-  id TEXT PRIMARY KEY NOT NULL,
-  variant_group_id TEXT NOT NULL REFERENCES variant_groups(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL,
-  name TEXT NOT NULL,
-  price_delta_cents INTEGER NOT NULL DEFAULT 0,
-  is_default INTEGER NOT NULL DEFAULT 0,
-  UNIQUE(variant_group_id, slug)
-)`);
-await db.run(sql`CREATE TABLE addon_groups (
-  id TEXT PRIMARY KEY NOT NULL,
-  product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL,
-  name TEXT NOT NULL,
-  min_selections INTEGER NOT NULL DEFAULT 0,
-  max_selections INTEGER,
-  UNIQUE(product_id, slug)
-)`);
-await db.run(sql`CREATE TABLE addons (
-  id TEXT PRIMARY KEY NOT NULL,
-  addon_group_id TEXT NOT NULL REFERENCES addon_groups(id) ON DELETE CASCADE,
-  slug TEXT NOT NULL,
-  name TEXT NOT NULL,
-  price_delta_cents INTEGER NOT NULL DEFAULT 0,
-  is_active INTEGER NOT NULL DEFAULT 1,
-  UNIQUE(addon_group_id, slug)
-)`);
+const db = await createTestDatabase();
 
 await db.run(sql`INSERT INTO categories (id, slug, name, display_order, is_active)
   VALUES
@@ -88,23 +33,11 @@ await db.run(sql`INSERT INTO addons
     ('addon-extra-shot', 'addon-group-coffee', 'extra-shot', 'Extra Shot', 100, 1),
     ('addon-inactive', 'addon-group-coffee', 'inactive-addon', 'Inactive Add-on', 200, 0)`);
 
-mock.module("#/db/client.server", () => ({ db }));
+mockDatabaseModule(db);
 const { loadMenu } = await import("./catalog.functions");
 
 test("getMenu returns the active catalog in a nested deterministic shape", async () => {
-  const menu = await runWithStartContext(
-    {
-      getRouter: async () => {
-        throw new Error("router is not needed for direct server-function execution");
-      },
-      request: new Request("http://localhost"),
-      startOptions: {},
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-      handlerType: "serverFn",
-    },
-    () => loadMenu(),
-  );
+  const menu = await withStartContext(() => loadMenu());
 
   expect(menu.categories.map(({ slug }) => slug)).toEqual(["coffee", "tea"]);
   expect(menu.categories[0]?.products.map(({ slug }) => slug)).toEqual(["latte", "mocha"]);

@@ -1,16 +1,8 @@
 import { expect, mock, test } from "bun:test";
-import { runWithStartContext } from "@tanstack/start-storage-context";
 import { sql } from "drizzle-orm";
-import { createDatabase } from "#/db/client";
+import { createTestDatabase, mockDatabaseModule, withStartContext } from "#/test/db-test-support";
 
-const db = createDatabase("file::memory:");
-await db.run(sql`
-  CREATE TABLE kiosks (
-    id TEXT PRIMARY KEY NOT NULL,
-    name TEXT NOT NULL,
-    prefix TEXT NOT NULL UNIQUE
-  )
-`);
+const db = await createTestDatabase();
 await db.run(sql`
   INSERT INTO kiosks (id, name, prefix) VALUES
     ('kiosk-b', 'Beta kiosk', 'B'),
@@ -19,7 +11,7 @@ await db.run(sql`
 
 const responseHeaders = new Map<string, string>();
 let requestCookie = "";
-mock.module("#/db/client.server", () => ({ db }));
+mockDatabaseModule(db);
 mock.module("#/env.server", () => ({
   serverEnv: {
     KIOSK_CLAIM_PASSWORD: "setup-secret",
@@ -68,21 +60,6 @@ test("readKioskCookie preserves the complete token after the first equals sign",
     issuedAt: 1_754_672_000_000,
   });
 });
-
-const withStartContext = <T>(handler: () => Promise<T>) =>
-  runWithStartContext(
-    {
-      getRouter: async () => {
-        throw new Error("router is not needed for direct server-function execution");
-      },
-      request: new Request("http://localhost"),
-      startOptions: {},
-      contextAfterGlobalMiddlewares: {},
-      executedRequestMiddlewares: new Set(),
-      handlerType: "serverFn",
-    },
-    handler,
-  );
 
 test("listKiosks returns every kiosk ordered by name then id", async () => {
   const kiosks = await withStartContext(() => listKiosksHandler());
