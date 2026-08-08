@@ -25,11 +25,11 @@ test("renders the fixed kiosk shell with its design tokens", async ({ page }) =>
   const sansFamily = await page
     .getByTestId("kiosk-ui-copy")
     .evaluate((element) => getComputedStyle(element).fontFamily);
-  const monoFamily = await page
+  const priceFamily = await page
     .getByTestId("kiosk-price")
     .evaluate((element) => getComputedStyle(element).fontFamily);
   expect(sansFamily).toContain("Inter");
-  expect(monoFamily).toContain("JetBrains Mono");
+  expect(priceFamily).toContain("Inter");
 
   const contentBox = await content.boundingBox();
   const bottomBarBox = await page.getByTestId("kiosk-bottom-bar").boundingBox();

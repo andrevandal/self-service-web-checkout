@@ -18,7 +18,7 @@ const Home = () => {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
           <div>
             <p className="text-body-s text-muted-foreground">Current order</p>
-            <p className="font-mono text-heading-m font-medium" data-testid="kiosk-price">
+            <p className="text-heading-m font-medium" data-testid="kiosk-price">
               $12.50
             </p>
           </div>

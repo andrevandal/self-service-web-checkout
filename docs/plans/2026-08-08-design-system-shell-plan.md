@@ -6,16 +6,16 @@
 
 **Architecture:** CSS custom properties in `src/styles.css` are the only token source of truth. Tailwind v4's `@theme inline` exposes those properties as semantic utilities, while `components.json` remains CSS-variable based and Lucide-backed. A `KioskShell` component owns the flex column and scroll boundaries; the index route supplies header/content/bottom-bar slots and serves as the browser-test fixture.
 
-**Tech Stack:** TanStack Start, React 19, Tailwind CSS v4, shadcn/ui configuration, Lucide React, `@fontsource/inter`, `@fontsource/jetbrains-mono`, Playwright.
+**Tech Stack:** TanStack Start, React 19, Tailwind CSS v4, shadcn/ui configuration, Lucide React, `@fontsource/inter`, Playwright.
 
 ## Global Constraints
 
 - Use the PRD's touch-first, high-contrast, calm visual language: warm paper `#f7f5f0`, charcoal ink, and forest green `#2f6e4f` as the single primary/selected accent.
-- Use sentence case and no emoji or promotional copy; use JetBrains Mono for glanceable prices and numbers.
+- Use sentence case and no emoji or promotional copy; use a single sans face for glanceable prices and numbers, same as body copy.
 - Keep token primitives and semantic shadcn aliases in `src/styles.css`; do not add a JavaScript Tailwind config or duplicate token values in component classes.
 - Convert reference pixel values to rem where CSS values are required; use the 4px spacing scale through 96px, approved radii, and soft ambient shadows.
 - Every screen shell is `h-dvh min-h-dvh flex flex-col overflow-hidden`; only its middle region scrolls (`min-h-0 flex-1 overflow-y-auto`).
-- Bundle Inter and JetBrains Mono through `@fontsource` packages; do not add runtime Google Fonts requests or hand-written font files.
+- Bundle Inter through `@fontsource/inter`; there is no separate mono face — do not add runtime Google Fonts requests or hand-written font files.
 - Use Lucide outline icons with a 2px stroke and large touch targets.
 - Follow TDD: add and run the browser test before the shell exists, observe the expected failure, then implement and rerun it green.
 - Do not add backend calls, client state, kitchen SSE, timers, analytics, or feature-specific flows in this spec.
@@ -69,11 +69,11 @@ test("renders the fixed kiosk shell with its design tokens", async ({ page }) =>
   const sansFamily = await page.getByTestId("kiosk-ui-copy").evaluate(
     (element) => getComputedStyle(element).fontFamily,
   );
-  const monoFamily = await page.getByTestId("kiosk-price").evaluate(
+  const priceFamily = await page.getByTestId("kiosk-price").evaluate(
     (element) => getComputedStyle(element).fontFamily,
   );
   expect(sansFamily).toContain("Inter");
-  expect(monoFamily).toContain("JetBrains Mono");
+  expect(priceFamily).toContain("Inter");
 
   const contentBox = await content.boundingBox();
   const bottomBarBox = await page.getByTestId("kiosk-bottom-bar").boundingBox();
@@ -110,15 +110,15 @@ git commit -m "test(design-system): define shell browser contract"
 - Modify: `components.json`
 
 **Interfaces:**
-- Produces CSS variables and Tailwind utilities consumed by `KioskShell` and routes: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `font-sans`, `font-mono`, `rounded-md`, `rounded-lg`, `shadow-sm`, and the spacing utilities generated from the approved scale.
-- Produces bundled `Inter` and `JetBrains Mono` font faces available to the browser without a network request.
+- Produces CSS variables and Tailwind utilities consumed by `KioskShell` and routes: `bg-background`, `text-foreground`, `bg-primary`, `text-primary-foreground`, `font-sans`, `rounded-md`, `rounded-lg`, `shadow-sm`, and the spacing utilities generated from the approved scale.
+- Produces a bundled `Inter` font face available to the browser without a network request; no separate mono face is bundled.
 
 - [ ] **Step 1: Add self-hosted font packages**
 
 Run:
 
 ```bash
-bun add @fontsource/inter@^5 @fontsource/jetbrains-mono@^5
+bun add @fontsource/inter@^5
 ```
 
 Expected: `package.json` gains both dependencies and `bun.lock` records their resolved packages. Keep the lockfile changes from this command; do not manually edit dependency versions.
@@ -135,16 +135,12 @@ In `src/styles.css`, keep the Tailwind and animation imports, then import these 
 @import "@fontsource/inter/600.css";
 @import "@fontsource/inter/700.css";
 @import "@fontsource/inter/800.css";
-@import "@fontsource/jetbrains-mono/400.css";
-@import "@fontsource/jetbrains-mono/500.css";
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
   --font-family-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-family-mono: "JetBrains Mono", "SFMono-Regular", Consolas, "Liberation Mono", monospace;
   --font-sans: var(--font-family-sans);
-  --font-mono: var(--font-family-mono);
 
   --color-paper: #f7f5f0;
   --color-cream: #fbfaf7;
@@ -296,7 +292,6 @@ Keep the existing box-sizing reset, then map semantic aliases in `@theme inline`
   --color-input: var(--input);
   --color-ring: var(--ring);
   --font-sans: var(--font-family-sans);
-  --font-mono: var(--font-family-mono);
   --radius-sm: var(--radius-sm-value);
   --radius-md: var(--radius-md-value);
   --radius-lg: var(--radius-lg-value);
@@ -419,7 +414,7 @@ const Home = () => {
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
           <div>
             <p className="text-body-s text-muted-foreground">Current order</p>
-            <p className="font-mono text-heading-m font-medium" data-testid="kiosk-price">
+            <p className="text-heading-m font-medium" data-testid="kiosk-price">
               $12.50
             </p>
           </div>
