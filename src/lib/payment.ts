@@ -297,6 +297,40 @@ export const reconcilePaymentAttemptHandler = ({
     reference: receipt.reference,
   };
 };
+export type ExpirePaymentAttemptInput = {
+  attemptId: string;
+  orderId: string;
+};
+
+export type ExpirePaymentAttemptResult = {
+  attemptId: string;
+  orderId: string;
+  attemptStatus: "expired";
+  orderStatus: "expired";
+};
+
+export const expirePaymentAttemptHandler = ({
+  attemptId,
+  orderId,
+}: ExpirePaymentAttemptInput): ExpirePaymentAttemptResult => {
+  if (!attemptId || !orderId) {
+    throw new PaymentAttemptError("invalid_input", "Payment attempt identity is required");
+  }
+  const attempt = paymentAttempts.get(attemptId);
+  if (!attempt || attempt.orderId !== orderId) {
+    throw new PaymentAttemptError("attempt_not_found", "Payment attempt was not found");
+  }
+  if (attempt.status !== "pending") {
+    throw new PaymentAttemptError("attempt_resolved", "Payment attempt is already resolved");
+  }
+  attempt.status = "expired";
+  return {
+    attemptId,
+    orderId,
+    attemptStatus: "expired",
+    orderStatus: "expired",
+  };
+};
 
 export const createOrder = createServerFn({ method: "POST" })
   .validator((input: CreateOrderInput) => input)
@@ -309,3 +343,7 @@ export const startPaymentAttempt = createServerFn({ method: "POST" })
 export const reconcilePaymentAttempt = createServerFn({ method: "POST" })
   .validator((input: ReconcilePaymentAttemptInput) => input)
   .handler(({ data }) => reconcilePaymentAttemptHandler(data));
+
+export const expirePaymentAttempt = createServerFn({ method: "POST" })
+  .validator((input: ExpirePaymentAttemptInput) => input)
+  .handler(({ data }) => expirePaymentAttemptHandler(data));
