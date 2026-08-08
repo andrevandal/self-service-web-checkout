@@ -26,6 +26,8 @@
     "agents:update": "bun scripts/update-agent-plugins.ts"
   },
   "dependencies": {
+    "@fontsource/inter": "^5",
+    "@fontsource/jetbrains-mono": "^5",
     "@libsql/client": "0.17.4",
     "@posthog/react": "1.10.3",
     "@tailwindcss/vite": "4.3.3",
