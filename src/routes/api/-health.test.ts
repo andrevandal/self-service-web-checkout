@@ -8,7 +8,7 @@ await db.run(
 );
 await db.run(sql`INSERT INTO pings (created_at) VALUES (${Date.now()})`);
 
-mock.module(import.meta.resolve("../../db/client.server"), () => ({ db }));
+mock.module("#/db/client.server", () => ({ db }));
 
 test("health route reports database connectivity", async () => {
   // Import after mocking so the route captures the in-memory database.
