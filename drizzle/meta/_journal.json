@@ -36,6 +36,13 @@
       "when": 1786230002789,
       "tag": "0004_burly_juggernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786231151205,
+      "tag": "0005_supreme_roughhouse",
+      "breakpoints": true
     }
   ]
 }

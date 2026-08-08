@@ -114,6 +114,21 @@ export const orders = sqliteTable("orders", {
     .default(sql`(unixepoch() * 1000)`),
   paidAt: integer("paid_at", { mode: "timestamp_ms" }),
 });
+export const paymentAttempts = sqliteTable("payment_attempts", {
+  id: text("id").primaryKey(),
+  orderId: text("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  status: text("status").notNull(),
+  terminalCommand: text("terminal_command").notNull(),
+  receipt: text("receipt"),
+  expectedAmountCents: integer("expected_amount_cents").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
+  resolvedAt: integer("resolved_at", { mode: "timestamp_ms" }),
+});
 
 export const orderItems = sqliteTable("order_items", {
   id: text("id").primaryKey(),
