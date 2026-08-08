@@ -1,4 +1,5 @@
-import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { integer, primaryKey, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
+import { sql } from "drizzle-orm";
 
 export const kiosks = sqliteTable("kiosks", {
   id: text("id").primaryKey(),
@@ -86,3 +87,67 @@ export const addons = sqliteTable(
   },
   (table) => [unique("addons_group_slug").on(table.addonGroupId, table.slug)],
 );
+
+export const kioskOrderCounters = sqliteTable(
+  "kiosk_order_counters",
+  {
+    kioskId: text("kiosk_id")
+      .notNull()
+      .references(() => kiosks.id, { onDelete: "cascade" }),
+    serviceDate: text("service_date").notNull(),
+    nextNumber: integer("next_number").notNull().default(1),
+  },
+  (table) => [primaryKey({ columns: [table.kioskId, table.serviceDate] })],
+);
+
+export const orders = sqliteTable("orders", {
+  id: text("id").primaryKey(),
+  kioskId: text("kiosk_id")
+    .notNull()
+    .references(() => kiosks.id),
+  orderNumber: text("order_number"),
+  status: text("status").notNull(),
+  subtotalCents: integer("subtotal_cents").notNull(),
+  totalAmountCents: integer("total_amount_cents").notNull(),
+  createdAt: integer("created_at", { mode: "timestamp_ms" })
+    .notNull()
+    .default(sql`(unixepoch() * 1000)`),
+  paidAt: integer("paid_at", { mode: "timestamp_ms" }),
+});
+
+export const orderItems = sqliteTable("order_items", {
+  id: text("id").primaryKey(),
+  orderId: text("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  productId: text("product_id")
+    .notNull()
+    .references(() => products.id),
+  productName: text("product_name").notNull(),
+  quantity: integer("quantity").notNull(),
+  unitPriceCents: integer("unit_price_cents").notNull(),
+});
+
+export const orderItemVariants = sqliteTable("order_item_variants", {
+  id: text("id").primaryKey(),
+  orderItemId: text("order_item_id")
+    .notNull()
+    .references(() => orderItems.id, { onDelete: "cascade" }),
+  variantOptionId: text("variant_option_id")
+    .notNull()
+    .references(() => variantOptions.id),
+  optionName: text("option_name").notNull(),
+  priceDeltaCents: integer("price_delta_cents").notNull(),
+});
+
+export const orderItemAddons = sqliteTable("order_item_addons", {
+  id: text("id").primaryKey(),
+  orderItemId: text("order_item_id")
+    .notNull()
+    .references(() => orderItems.id, { onDelete: "cascade" }),
+  addonId: text("addon_id")
+    .notNull()
+    .references(() => addons.id),
+  addonName: text("addon_name").notNull(),
+  priceDeltaCents: integer("price_delta_cents").notNull(),
+});
