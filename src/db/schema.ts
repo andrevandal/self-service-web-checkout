@@ -1,5 +1,11 @@
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
+export const kiosks = sqliteTable("kiosks", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  prefix: text("prefix").notNull().unique(),
+});
+
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
   slug: text("slug").notNull().unique(),
