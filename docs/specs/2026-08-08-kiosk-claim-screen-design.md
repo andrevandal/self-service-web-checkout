@@ -34,17 +34,19 @@ The root route owns the gate and renders one of two branches:
 The UI calls a small local adapter, `src/lib/kiosk-session.ts`, rather than coupling components to the unfinished backend module. The adapter exposes typed async operations matching the backend contract:
 
 - `getKioskSession()` reads the signed kiosk cookie and returns the current kiosk identity or `null`.
-- `listKiosks({ password })` returns all kiosk summaries after validating the shared password.
+- `listKiosks()` returns all kiosk summaries.
 - `claimKiosk({ password, kioskId })` claims/reclaims an existing kiosk.
-- `claimKiosk({ password, name, prefix })` creates and claims a new kiosk.
+- `claimKiosk({ password, name, prefix? })` creates and claims a new kiosk; the server derives a unique prefix when omitted.
+
+The shared password is collected before the list is revealed and is submitted with the eventual claim/create mutation; `listKiosks()` itself is a read-only listing and does not validate the password.
 
 The adapter is implemented as named `createServerFn` functions (or a single typed adapter around them) and is the only cross-layer boundary used by the route. Browser tests can inject an in-memory implementation through a test seam while still driving the built screen. When BackendPlatform-2 lands its stable signatures, this adapter swaps to those functions without changing the UI's state machine.
 
 TanStack Query manages server state:
 
-- Password submission calls `listKiosks` through a mutation and stores the returned kiosk list in query state.
+- Password submission reveals the chooser; `useQuery` calls `listKiosks()` once the password is non-empty and the chooser is active.
 - Claim/create uses a mutation; the pending state disables duplicate taps and labels the action as busy.
-- A successful mutation invalidates the kiosk/session query and navigates/reloads `/` so the server-set signed cookie is used on the next render.
+- A successful mutation invalidates the session query and navigates/reloads `/` so the server-set signed cookie is used on the next render.
 
 The setup UI does not read or write the cookie from client JavaScript. Cookie persistence and validity remain server responsibilities.
 
@@ -53,7 +55,7 @@ The setup UI does not read or write the cookie from client JavaScript. Cookie pe
 The screen has explicit states rather than relying on disabled controls alone:
 
 - Initial password form.
-- Password verification pending.
+- Kiosk-list loading.
 - Kiosk chooser with loading, populated, and empty-list presentations.
 - Existing-kiosk claim pending.
 - New-kiosk form with client-side required-field and prefix-shape feedback.
@@ -61,7 +63,7 @@ The screen has explicit states rather than relying on disabled controls alone:
 - Network/unexpected failure with a concise retry action.
 - Successful claim transitions back through the root gate; the setup UI does not claim success until the mutation resolves.
 
-A password is never placed in the URL, query key, analytics payload, or rendered text after submission. The list query is only enabled after a non-empty password is entered, and a failed password attempt clears the list while retaining the field for correction.
+A password is never placed in the URL, query key, analytics payload, or rendered text after submission. The list query only runs after the password gate is continued; the password remains local and is sent only with the claim/create mutation.
 
 ## Accessibility and visual language
 
