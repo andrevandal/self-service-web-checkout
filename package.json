@@ -18,7 +18,7 @@
     "format:fix": "oxfmt --write .",
     "typecheck": "tsc --noEmit",
     "test": "bun test src scripts",
-    "test:e2e": "bun run db:migrate && bun run build && playwright test",
+    "test:e2e": "bun run db:migrate && VITE_TERMINAL_DELAY_MS=0 bun run build && playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "bun scripts/seed.ts",
