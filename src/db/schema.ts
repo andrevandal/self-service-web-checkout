@@ -1,10 +1,5 @@
 import { integer, sqliteTable, text, unique } from "drizzle-orm/sqlite-core";
 
-export const pings = sqliteTable("pings", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  createdAt: integer("created_at", { mode: "timestamp" }).notNull(),
-});
-
 export const categories = sqliteTable("categories", {
   id: text("id").primaryKey(),
   slug: text("slug").notNull().unique(),

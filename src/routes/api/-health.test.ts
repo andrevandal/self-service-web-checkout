@@ -1,12 +1,7 @@
 import { expect, mock, test } from "bun:test";
-import { sql } from "drizzle-orm";
 import { createDatabase } from "#/db/client";
 
 const db = createDatabase("file::memory:");
-await db.run(
-  sql`CREATE TABLE pings (id INTEGER PRIMARY KEY AUTOINCREMENT, created_at INTEGER NOT NULL)`,
-);
-await db.run(sql`INSERT INTO pings (created_at) VALUES (${Date.now()})`);
 
 mock.module("#/db/client.server", () => ({ db }));
 
