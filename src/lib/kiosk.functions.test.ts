@@ -18,6 +18,7 @@ await db.run(sql`
 `);
 
 const responseHeaders = new Map<string, string>();
+let requestCookie = "";
 mock.module("#/db/client.server", () => ({ db }));
 mock.module("#/env.server", () => ({
   serverEnv: {
@@ -27,10 +28,46 @@ mock.module("#/env.server", () => ({
   },
 }));
 mock.module("@tanstack/react-start/server", () => ({
+  getRequestHeader: () => requestCookie,
   setResponseHeader: (name: string, value: string) => responseHeaders.set(name, value),
 }));
 
 const { listKiosksHandler, claimKioskHandler } = await import("./kiosk.functions");
+const { setKioskCookie, signKioskCookie, verifyKioskCookie, readKioskCookie } =
+  await import("./kiosk-cookie.server");
+
+test("kiosk cookies sign, verify, and reject tampering", () => {
+  const payload = { kioskId: "kiosk-a", issuedAt: 1_754_672_000_000 };
+  const token = signKioskCookie(payload, "cookie-secret");
+  expect(verifyKioskCookie(token, "cookie-secret")).toEqual(payload);
+  expect(verifyKioskCookie(`${token}x`, "cookie-secret")).toBeNull();
+  expect(verifyKioskCookie("not-a-token", "cookie-secret")).toBeNull();
+});
+
+test("kiosk cookie attributes honor the secure toggle", () => {
+  const payload = { kioskId: "kiosk-a", issuedAt: 1_754_672_000_000 };
+  setKioskCookie(payload, "cookie-secret", false);
+  expect(responseHeaders.get("Set-Cookie")).toMatch(
+    /^kiosk_session=.+; HttpOnly; SameSite=Lax; Path=\/$/,
+  );
+
+  setKioskCookie(payload, "cookie-secret", true);
+  expect(responseHeaders.get("Set-Cookie")).toMatch(
+    /^kiosk_session=.+; HttpOnly; SameSite=Lax; Path=\/; Secure$/,
+  );
+});
+
+test("readKioskCookie preserves the complete token after the first equals sign", () => {
+  const token = signKioskCookie(
+    { kioskId: "kiosk-a", issuedAt: 1_754_672_000_000 },
+    "cookie-secret",
+  );
+  requestCookie = `other=value; kiosk_session=${token}; trailing=value`;
+  expect(readKioskCookie("cookie-secret")).toEqual({
+    kioskId: "kiosk-a",
+    issuedAt: 1_754_672_000_000,
+  });
+});
 
 const withStartContext = <T>(handler: () => Promise<T>) =>
   runWithStartContext(
