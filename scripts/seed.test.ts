@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { sql } from "drizzle-orm";
-import { createDatabase } from "../src/db/client";
+import { createDatabase } from "#/db/client";
 import { seed } from "./seed";
 test("seed persists one ping", async () => {
   const url = "file::memory:?cache=shared";
