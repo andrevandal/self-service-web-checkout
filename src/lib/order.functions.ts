@@ -79,14 +79,15 @@ export class CreateOrderError extends Error {
   }
 }
 
+const identifierSchema = v.pipe(v.string(), v.minLength(1));
 const createOrderInputSchema = v.object({
   lines: v.pipe(
     v.array(
       v.object({
-        productId: v.string(),
+        productId: identifierSchema,
         quantity: v.pipe(v.number(), v.integer(), v.minValue(1)),
-        variantOptionIds: v.array(v.string()),
-        addonIds: v.array(v.string()),
+        variantOptionIds: v.array(identifierSchema),
+        addonIds: v.array(identifierSchema),
       }),
     ),
     v.minLength(1),

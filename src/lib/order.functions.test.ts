@@ -171,13 +171,18 @@ test("createOrder requires signed kiosk identity", async () => {
   });
 });
 
-test("createOrder rejects empty and zero-quantity carts", async () => {
+test("createOrder rejects empty, malformed, and zero-quantity carts", async () => {
   await expect(withStartContext(() => createOrderHandler({ lines: [] }))).rejects.toMatchObject({
     code: "invalid_input",
   });
   await expect(
     withStartContext(() =>
       createOrderHandler({ ...validInput(), lines: [{ ...validInput().lines[0], quantity: 0 }] }),
+    ),
+  ).rejects.toMatchObject({ code: "invalid_input" });
+  await expect(
+    withStartContext(() =>
+      createOrderHandler({ ...validInput(), lines: [{ ...validInput().lines[0], productId: "" }] }),
     ),
   ).rejects.toMatchObject({ code: "invalid_input" });
   expect(await db.select().from(orders)).toEqual([]);
