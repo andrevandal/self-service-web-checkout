@@ -35,7 +35,7 @@
 - Modify: `src/lib/payment.functions.ts` — load the committed paid order and emit `order.paid` after its existing transaction resolves.
 - Create: `src/routes/api/kitchen/events.ts` — authenticated SSE route subscribing to all three kitchen events.
 - Create: `src/lib/kitchen.functions.test.ts` — red/green tests for staff auth, queue reads, transitions, dispatcher events, and paid-event wiring.
-- Create: `src/routes/api/kitchen/events.test.ts` — focused route-to-dispatcher stream integration test.
+- Create: `src/routes/api/kitchen/-events.test.ts` — focused route-to-dispatcher stream integration test (the `-` prefix keeps the test out of TanStack's route tree).
 - Create: `docs/specs/2026-08-08-kitchen-queue-design.md` (committed) — approved contract and rationale.
 - Create: `docs/plans/2026-08-08-kitchen-queue-plan.md` (this file) — implementation sequence and verification.
 
@@ -120,7 +120,7 @@ const events = new EventSource("/api/kitchen/events");
 
 **Files:**
 - Create: `src/lib/kitchen.functions.test.ts`
-- Create: `src/routes/api/kitchen/events.test.ts` (route assertions may be added after the route exists; the domain test is the required initial red test)
+- Create: `src/routes/api/kitchen/-events.test.ts` (route assertions may be added after the route exists; the domain test is the required initial red test)
 - Read/reuse: `src/test/db-test-support.ts`, `src/db/schema.ts`, `src/lib/kiosk-cookie.server.ts`, `src/lib/payment.functions.test.ts`
 
 - [ ] **Step 1: Set up an isolated migrated database and server mocks.**
@@ -393,7 +393,7 @@ Expected: all existing payment tests remain green and the new approval/decline e
 
 **Files:**
 - Create: `src/routes/api/kitchen/events.ts`
-- Create: `src/routes/api/kitchen/events.test.ts`
+- Create: `src/routes/api/kitchen/-events.test.ts`
 
 **Interfaces:**
 - Consumes: `readStaffCookie`, `serverEnv`, `kitchenEventDispatcher`, `KitchenOrderEvent`.
@@ -433,7 +433,7 @@ Mock `#/env.server`, `@tanstack/react-start/server` cookie access, and import th
 Run:
 
 ```bash
-bun test src/routes/api/kitchen/events.test.ts src/lib/kitchen.functions.test.ts src/lib/payment.functions.test.ts
+bun test src/routes/api/kitchen/-events.test.ts src/lib/kitchen.functions.test.ts src/lib/payment.functions.test.ts
 ```
 
 Expected: authenticated stream emits connected and dispatcher frames, cancellation unsubscribes, unauthorized requests are rejected, and all domain/payment tests pass.
