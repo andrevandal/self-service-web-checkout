@@ -44,6 +44,18 @@ export type ReconcilePaymentAttemptInput = {
   receipt: PaymentReceipt;
 };
 
+export type ExpirePaymentAttemptInput = {
+  attemptId: string;
+};
+
+export type ExpirePaymentAttemptResult = {
+  attemptId: string;
+  orderId: string;
+  attemptStatus: "expired";
+  orderStatus: "expired";
+  amountCents: number;
+};
+
 export type ReconcilePaymentAttemptResult = {
   attemptId: string;
   orderId: string;
@@ -90,6 +102,9 @@ const reconcilePaymentAttemptInputSchema = v.object({
   attemptId: v.pipe(v.string(), v.minLength(1)),
   receipt: paymentReceiptSchema,
 });
+const expirePaymentAttemptInputSchema = v.object({
+  attemptId: v.pipe(v.string(), v.minLength(1)),
+});
 
 const validateStartPaymentAttemptInput = (input: unknown): StartPaymentAttemptInput => {
   const result = v.safeParse(startPaymentAttemptInputSchema, input);
@@ -105,6 +120,42 @@ const validateReconcilePaymentAttemptInput = (input: unknown): ReconcilePaymentA
     throw new PaymentAttemptError("invalid_input", "Attempt receipt is invalid");
   }
   return result.output;
+};
+
+const validateExpirePaymentAttemptInput = (input: unknown): ExpirePaymentAttemptInput => {
+  const result = v.safeParse(expirePaymentAttemptInputSchema, input);
+  if (!result.success) {
+    throw new PaymentAttemptError("invalid_input", "Attempt id is required");
+  }
+  return result.output;
+};
+
+const expireAttemptInTransaction = async (
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  attemptId: string,
+  orderId: string,
+  now: Date,
+  expireOrder: boolean,
+) => {
+  if (expireOrder) {
+    const [expiredOrder] = await tx
+      .update(orders)
+      .set({ status: "expired" })
+      .where(and(eq(orders.id, orderId), eq(orders.status, "payment_pending")))
+      .returning({ id: orders.id });
+    if (!expiredOrder) {
+      throw new PaymentAttemptError("order_not_pending", "Order is no longer pending payment");
+    }
+  }
+
+  const [expiredAttempt] = await tx
+    .update(paymentAttempts)
+    .set({ status: "expired", resolvedAt: now })
+    .where(and(eq(paymentAttempts.id, attemptId), eq(paymentAttempts.status, "pending")))
+    .returning({ id: paymentAttempts.id });
+  if (!expiredAttempt) {
+    throw new PaymentAttemptError("attempt_resolved", "Payment attempt is already resolved");
+  }
 };
 
 export const startPaymentAttemptHandler = async (
@@ -175,6 +226,72 @@ export const startPaymentAttemptHandler = async (
   });
 };
 
+export const expirePaymentAttemptHandler = async (
+  input: ExpirePaymentAttemptInput,
+): Promise<ExpirePaymentAttemptResult> => {
+  const data = validateExpirePaymentAttemptInput(input);
+  const secret = serverEnv.KIOSK_COOKIE_SECRET;
+  if (!secret) {
+    throw new PaymentAttemptError("configuration", "Kiosk cookie secret is not configured");
+  }
+
+  const cookie = readKioskCookie(secret);
+  if (!cookie) {
+    throw new PaymentAttemptError("kiosk_identity", "A valid kiosk session is required");
+  }
+
+  return db.transaction(async (tx) => {
+    const [kiosk] = await tx
+      .select({ id: kiosks.id })
+      .from(kiosks)
+      .where(eq(kiosks.id, cookie.kioskId))
+      .limit(1);
+    if (!kiosk) {
+      throw new PaymentAttemptError("kiosk_identity", "Kiosk session no longer exists");
+    }
+
+    const [attempt] = await tx
+      .select({
+        id: paymentAttempts.id,
+        orderId: orders.id,
+        orderKioskId: orders.kioskId,
+        orderStatus: orders.status,
+        attemptStatus: paymentAttempts.status,
+        expectedAmountCents: paymentAttempts.expectedAmountCents,
+      })
+      .from(paymentAttempts)
+      .innerJoin(orders, eq(paymentAttempts.orderId, orders.id))
+      .where(eq(paymentAttempts.id, data.attemptId))
+      .limit(1);
+
+    if (!attempt) {
+      throw new PaymentAttemptError("attempt_not_found", "Payment attempt was not found");
+    }
+    if (attempt.orderKioskId !== cookie.kioskId) {
+      throw new PaymentAttemptError(
+        "attempt_ownership",
+        "Payment attempt belongs to another kiosk",
+      );
+    }
+    if (attempt.attemptStatus !== "pending") {
+      throw new PaymentAttemptError("attempt_resolved", "Payment attempt is already resolved");
+    }
+    if (attempt.orderStatus !== "payment_pending") {
+      throw new PaymentAttemptError("order_not_pending", "Order is no longer pending payment");
+    }
+
+    await expireAttemptInTransaction(tx, attempt.id, attempt.orderId, new Date(), true);
+
+    return {
+      attemptId: attempt.id,
+      orderId: attempt.orderId,
+      attemptStatus: "expired",
+      orderStatus: "expired",
+      amountCents: attempt.expectedAmountCents,
+    };
+  });
+};
+
 type ReconcileTransactionResult =
   | { kind: "result"; value: ReconcilePaymentAttemptResult }
   | { kind: "terminal-error"; error: PaymentAttemptError };
@@ -239,10 +356,7 @@ export const reconcilePaymentAttemptHandler = async (
 
     const now = new Date();
     if (now.getTime() >= attempt.expiresAt.getTime()) {
-      await tx
-        .update(paymentAttempts)
-        .set({ status: "expired", resolvedAt: now })
-        .where(eq(paymentAttempts.id, attempt.id));
+      await expireAttemptInTransaction(tx, attempt.id, attempt.orderId, now, false);
       return {
         kind: "terminal-error",
         error: new PaymentAttemptError("attempt_expired", "Payment attempt has expired"),
@@ -306,6 +420,7 @@ export const reconcilePaymentAttemptHandler = async (
       .set({ status: "paid", orderNumber, paidAt: now })
       .where(and(eq(orders.id, attempt.orderId), eq(orders.status, "payment_pending")))
       .returning({ id: orders.id });
+
     if (!paidOrder) {
       throw new PaymentAttemptError("order_not_pending", "Order is no longer pending payment");
     }
@@ -356,3 +471,6 @@ export const startPaymentAttempt = createServerFn({ method: "POST" })
 export const reconcilePaymentAttempt = createServerFn({ method: "POST" })
   .validator((input) => validateReconcilePaymentAttemptInput(input))
   .handler(({ data }) => reconcilePaymentAttemptHandler(data));
+export const expirePaymentAttempt = createServerFn({ method: "POST" })
+  .validator((input) => validateExpirePaymentAttemptInput(input))
+  .handler(({ data }) => expirePaymentAttemptHandler(data));
