@@ -38,8 +38,8 @@ The order is created before the terminal attempt and is not recreated for retrie
 `src/lib/checkout.ts` contains pure mapping and state helpers. It converts a `CartState` into the exact `CreateOrderInput` shape and exposes stable local types for an order and retryable payment result. `src/lib/payment.ts` is the client-facing server-function seam:
 
 - `createOrder` has the landed backend signature and returns `{ id, kioskId, status: "payment_pending", orderNumber: null, subtotalCents, totalAmountCents, items }`.
-- `startPaymentAttempt` returns an attempt ID, one-time terminal command, and expected amount. Until backend spec 4 exposes the finalized named function, the local adapter keeps this same input/output shape and is replaced at the boundary when the backend module lands.
-- `reconcilePaymentAttempt` accepts an attempt ID and opaque receipt and returns either an approved order number/print result or a typed failure (`declined`, `unavailable`, `invalid`, or `expired`). Its local adapter follows the same server-function-shaped seam.
+- `startPaymentAttempt({ data: { orderId } })` returns `{ id, orderId, status: "pending", terminalCommand, expectedAmountCents, expiresAt }`. Until the backend module is swapped in, the local adapter keeps this exact input/output shape.
+- `reconcilePaymentAttempt({ data: { attemptId, receipt } })` accepts a structured receipt `{ terminalCommand, reference, amountCents, outcome }` and returns `{ attemptId, orderId, attemptStatus, orderStatus, orderNumber, amountCents, reference }`, or throws a typed failure (`attempt_expired`, `receipt_invalid`, and related retryable codes). The local adapter follows this server-function-shaped seam.
 
 All server calls are invoked from TanStack Query mutations. No component uses `fetch` for orders or payment. The one allowed kitchen SSE exception is unrelated and remains untouched.
 
@@ -60,7 +60,7 @@ A create-order error is shown as a retryable checkout error while retaining the 
 
 ## Terminal and printer adapters
 
-`src/lib/terminal.ts` defines a small async adapter rather than simulating hardware inside the component. `executeTerminalCommand(command, options)` accepts a one-time command and optional `delayMs` and `outcome`. It waits the configured delay, then returns an opaque receipt for approval or a typed terminal failure for decline/unavailable/invalid. The default outcome is approval, matching the PRD. The delay is clamped to a non-negative finite value; tests pass `0` (or a test environment default) and use fake timers where they exercise delay behavior. The adapter never returns card data and the UI never renders the receipt.
+`src/lib/terminal.ts` defines a small async adapter rather than simulating hardware inside the component. `executeTerminalCommand(command, { expectedAmountCents, delayMs, outcome })` waits the configured delay, then returns a structured opaque receipt `{ terminalCommand, reference, amountCents, outcome }`. The default outcome is approval, matching the PRD; decline and unavailable are configurable. Invalid and expired outcomes are represented by reconciliation failures from the server seam. The delay is clamped to a non-negative finite value; tests pass `0` (or a test environment default) and use fake timers where they exercise delay behavior. The adapter never returns card data and the UI never renders the receipt.
 
 `src/lib/printer.ts` defines `printReceipt(receipt)` as a client-side fake. It records only that the approved receipt was printed and resolves asynchronously without introducing visible delay. The confirmation screen is entered only after reconciliation approval, and print is invoked once per approved response. The adapter seam allows a real device integration later without changing checkout state transitions.
 

@@ -141,14 +141,28 @@ In `src/lib/payment.ts`, use `createServerFn` and export these exact types/funct
 ```ts
 export type StartPaymentAttemptInput = { orderId: string };
 export type StartPaymentAttemptResult = {
-  attemptId: string;
+  id: string;
+  orderId: string;
+  status: "pending";
   terminalCommand: string;
   expectedAmountCents: number;
+  expiresAt: string;
 };
-export type PaymentFailureCode = "declined" | "unavailable" | "invalid" | "expired";
-export type ReconcilePaymentAttemptResult =
-  | { status: "approved"; orderId: string; orderNumber: string; receipt: string }
-  | { status: PaymentFailureCode; orderId: string; message: string };
+export type PaymentReceipt = {
+  terminalCommand: string;
+  reference: string;
+  amountCents: number;
+  outcome: "approved" | "declined" | "unavailable";
+};
+export type ReconcilePaymentAttemptResult = {
+  attemptId: string;
+  orderId: string;
+  attemptStatus: "approved" | "declined" | "unavailable";
+  orderStatus: "paid" | "payment_pending";
+  orderNumber: string | null;
+  amountCents: number;
+  reference: string;
+};
 
 export const createOrder = createServerFn({ method: "POST" })
   .validator((input: CreateOrderInput) => input)
@@ -157,11 +171,11 @@ export const startPaymentAttempt = createServerFn({ method: "POST" })
   .validator((input: StartPaymentAttemptInput) => input)
   .handler(({ data }) => localStartPaymentAttempt(data));
 export const reconcilePaymentAttempt = createServerFn({ method: "POST" })
-  .validator((input: { attemptId: string; receipt: string }) => input)
+  .validator((input: { attemptId: string; receipt: PaymentReceipt }) => input)
   .handler(({ data }) => localReconcilePaymentAttempt(data));
 ```
 
-The local order handler returns `payment_pending`, calculates its integer total from a server-side fixture map, and stores the pending order/attempt in module-local state. The local attempt handler generates a one-time command and records its order ID/expected total. Reconciliation accepts only the recorded command's opaque receipt, returns approval with a kiosk-prefixed order number (for example `A-13`) by default, and returns typed failure data for configured test outcomes. Keep these handlers behind the exported `createServerFn` declarations so swapping in the backend implementation is a boundary-only change.
+The local order handler returns `payment_pending`, calculates its integer total from a server-side fixture map, and stores the pending order in module-local state. The local attempt handler returns the backend-shaped `{ id, orderId, status, terminalCommand, expectedAmountCents, expiresAt }` result and records its order ID/expected total. Reconciliation accepts the structured receipt only when its command and amount match the recorded attempt, returns approval with a kiosk-prefixed order number (for example `A-13`) by default, returns declined/unavailable pending results, and throws retryable typed errors for invalid/expired receipts. Keep these handlers behind the exported `createServerFn` declarations so swapping in the backend implementation is a boundary-only change.
 
 - [ ] **Step 3: Run the focused type check for the new modules**
 
@@ -197,22 +211,41 @@ afterEach(() => {
 });
 
 describe("executeTerminalCommand", () => {
-  test("returns an opaque receipt for approval with zero delay", async () => {
-    const result = await executeTerminalCommand("cmd-1", { delayMs: 0, outcome: "approved" });
-    expect(result.status).toBe("approved");
-    expect(result.receipt).toMatch(/^sim-receipt-/);
-    expect(result.receipt).not.toContain("cmd-1");
+  test("returns an opaque structured receipt for approval with zero delay", async () => {
+    const result = await executeTerminalCommand("cmd-1", {
+      delayMs: 0,
+      expectedAmountCents: 650,
+      outcome: "approved",
+    });
+    expect(result).toEqual({
+      terminalCommand: "cmd-1",
+      reference: expect.stringMatching(/^sim-reference-/),
+      amountCents: 650,
+      outcome: "approved",
+    });
   });
 
-  test("returns typed decline without a receipt", async () => {
+  test("returns a decline receipt without exposing card data", async () => {
     await expect(
-      executeTerminalCommand("cmd-2", { delayMs: 0, outcome: "declined" }),
-    ).resolves.toEqual({ status: "declined" });
+      executeTerminalCommand("cmd-2", {
+        delayMs: 0,
+        expectedAmountCents: 850,
+        outcome: "declined",
+      }),
+    ).resolves.toMatchObject({
+      terminalCommand: "cmd-2",
+      amountCents: 850,
+      outcome: "declined",
+    });
   });
 
   test("honors a positive configured delay", async () => {
     const started = performance.now();
-    await executeTerminalCommand("cmd-3", { delayMs: 20, outcome: "approved" });
+    await executeTerminalCommand("cmd-3", {
+      delayMs: 20,
+      expectedAmountCents: 100,
+      outcome: "approved",
+    });
     expect(performance.now() - started).toBeGreaterThanOrEqual(15);
   });
 });
@@ -233,23 +266,34 @@ Expected: FAIL because `src/lib/terminal.ts` does not exist yet.
 Implement `src/lib/terminal.ts` with:
 
 ```ts
-export type TerminalOutcome = "approved" | "declined" | "unavailable" | "invalid";
-export type TerminalResult =
-  | { status: "approved"; receipt: string }
-  | { status: Exclude<TerminalOutcome, "approved"> };
-export type TerminalOptions = { delayMs?: number; outcome?: TerminalOutcome };
+export type TerminalOutcome = "approved" | "declined" | "unavailable";
+export type TerminalReceipt = {
+  terminalCommand: string;
+  reference: string;
+  amountCents: number;
+  outcome: TerminalOutcome;
+};
+export type TerminalOptions = {
+  delayMs?: number;
+  expectedAmountCents: number;
+  outcome?: TerminalOutcome;
+};
 
 export const executeTerminalCommand = async (
-  _command: string,
-  options: TerminalOptions = {},
-): Promise<TerminalResult> => {
+  command: string,
+  options: TerminalOptions,
+): Promise<TerminalReceipt> => {
   const configuredDelay = Number(import.meta.env.VITE_TERMINAL_DELAY_MS ?? 350);
-  const delayMs = Math.max(0, Number.isFinite(options.delayMs ?? configuredDelay) ? options.delayMs ?? configuredDelay : 0);
+  const requestedDelay = options.delayMs ?? configuredDelay;
+  const delayMs = Math.max(0, Number.isFinite(requestedDelay) ? requestedDelay : 0);
   const outcome = options.outcome ?? "approved";
   await new Promise<void>((resolve) => setTimeout(resolve, delayMs));
-  return outcome === "approved"
-    ? { status: "approved", receipt: `sim-receipt-${crypto.randomUUID()}` }
-    : { status: outcome };
+  return {
+    terminalCommand: command,
+    reference: `sim-reference-${crypto.randomUUID()}`,
+    amountCents: options.expectedAmountCents,
+    outcome,
+  };
 };
 ```
 
