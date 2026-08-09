@@ -17,7 +17,7 @@ Wire the merged kiosk-ui screens to the merged backend-platform server functions
 
 The investigation recorded in `GOAL.md` was performed by direct reads of every relevant implementation and callsite. The following findings are the integration contract:
 
-- `src/lib/menu.ts` and `src/lib/catalog.functions.ts` expose field-for-field identical menu types. `menu-screen.tsx` only needs to import `getMenu` from `catalog.functions.ts`.
+- `src/lib/menu.ts` and `src/lib/catalog.functions.ts` expose field-for-field identical menu types. Direct review found that the backend's nested menu declarations were not exported even though the UI imports `MenuProduct`; the integration must add `export` to the existing `MenuAddon`/`MenuAddonGroup`/`MenuVariantOption`/`MenuVariantGroup`/`MenuProduct`/`MenuCategory` declarations before swapping the import. This is visibility-only drift with no shape or runtime change.
 - `src/lib/kiosk-session.ts` and the backend kiosk functions agree on `Kiosk`, `listKiosks`, `claimKiosk`, and all five claim error codes. The backend has no `getKioskSession` export. The new function must read and verify `kiosk_session` through `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)`, query `kiosks` by `payload.kioskId`, and return `{ id, name, prefix }` or `null`.
 - `src/lib/payment.ts` matches `order.functions.ts` and `payment.functions.ts` for all types, inputs, outputs, and error codes. The expiry contract is already aligned as `expirePaymentAttempt({ data: { attemptId } })`.
 - `src/lib/kitchen.ts` matches the backend handler input/output shapes for `claimStaffSession`, `listActiveOrders`, and `advanceOrder`. The backend intentionally splits staff-session and order errors; the UI must retain a local six-code union for its message map. The backend `KitchenOrderEvent` paid variant has additional top-level fields but remains structurally compatible because the UI reads only `event.order`.
@@ -28,7 +28,7 @@ The investigation recorded in `GOAL.md` was performed by direct reads of every r
 ## Implementation approach
 
 1. Implement `getKioskSession` in `src/lib/kiosk.functions.ts` as a named `createServerFn({ method: "GET" })`. Its handler will call `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)`, return `null` for a missing or invalid cookie, select the referenced kiosk row by id, and map it to the public `Kiosk` shape. It will not create a second session store or alter cookie semantics.
-2. Swap each callsite in the verified list to the real backend module. In `kitchen-screen.tsx`, declare the six-code local `KitchenErrorCode` union and import `KitchenOrderEvent`/`KitchenOrder` from `kitchen.functions.ts`; keep the existing SSE route and duck-typed error handling unchanged.
+2. Export the existing nested catalog types, then swap each callsite in the verified list to the real backend module. In `kitchen-screen.tsx`, declare the six-code local `KitchenErrorCode` union and import `KitchenOrderEvent`/`KitchenOrder` from `kitchen.functions.ts`; keep the existing SSE route and duck-typed error handling unchanged.
 3. Make `checkout.ts` consume `CreateOrderInput` and `CreateOrderResult` from `order.functions.ts`, preserving its pure mapping behavior and existing tests.
 4. Delete only the four now-dead seam modules and their colocated tests. Do not delete `checkout.ts` or its test, backend handlers, or the SSE route.
 5. Create an ignored local `.env` containing the approved development-only values:
