@@ -8,9 +8,9 @@ import {
 
 describe("expirePaymentAttemptHandler", () => {
   test("rejects an unknown attempt", () => {
-    expect(() =>
-      expirePaymentAttemptHandler({ attemptId: "missing", orderId: "missing-order" }),
-    ).toThrow(PaymentAttemptError);
+    expect(() => expirePaymentAttemptHandler({ attemptId: "missing" })).toThrow(
+      PaymentAttemptError,
+    );
   });
 
   test("marks a pending attempt expired for its owning order", () => {
@@ -26,11 +26,12 @@ describe("expirePaymentAttemptHandler", () => {
     });
     const attempt = startPaymentAttemptHandler({ orderId: order.id });
 
-    expect(expirePaymentAttemptHandler({ attemptId: attempt.id, orderId: order.id })).toEqual({
+    expect(expirePaymentAttemptHandler({ attemptId: attempt.id })).toEqual({
       attemptId: attempt.id,
       orderId: order.id,
       attemptStatus: "expired",
       orderStatus: "expired",
+      amountCents: order.totalAmountCents,
     });
   });
 });

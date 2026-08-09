@@ -11,6 +11,8 @@ declare module 'virtual:env/client' {
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
     readonly VITE_TERMINAL_DELAY_MS: string
+    readonly VITE_CART_IDLE_TIMEOUT_MS: string
+    readonly VITE_CART_IDLE_COUNTDOWN_SECONDS: string
   }
   export { env }
   export default env
@@ -23,6 +25,8 @@ declare module 'virtual:env/server' {
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
     readonly VITE_TERMINAL_DELAY_MS: string
+    readonly VITE_CART_IDLE_TIMEOUT_MS: string
+    readonly VITE_CART_IDLE_COUNTDOWN_SECONDS: string
   }
   export { env }
   export default env

@@ -17,7 +17,7 @@
 - `kiosk_id` comes from the server-derived `KioskSession.id`; do not use customer input or a hard-coded identity.
 - `cart_lines` is an immutable JSON-safe snapshot containing line id, product id, category id, product name, unit price cents, variants, and addons; never include customer/card/terminal receipt data.
 - The same timer is active in checkout phases `creating_order`, `starting_attempt`, `taking_payment`, `reconciling`, and `failed`; it is inactive for `confirmed`.
-- When payment expires and an attempt ID exists, await `expirePaymentAttempt({ data: { attemptId, orderId } })` before clearing local cart and cancelling checkout. If no attempt exists yet, skip the server call and still release the stale UI.
+- When payment expires and an attempt ID exists, await `expirePaymentAttempt({ data: { attemptId } })` before clearing local cart and cancelling checkout. The backend result includes `orderId`, `attemptStatus: "expired"`, `orderStatus: "expired"`, and `amountCents`; if no attempt exists yet, skip the server call and still release the stale UI.
 - Every server interaction uses a named `createServerFn` invoked through TanStack Query; no raw API fetch is added.
 - Reuse the spec 3 hand-rolled dialog approach (`role="dialog"`, `aria-modal`, focus trap/restoration, Escape handling); do not add a Base UI dependency.
 - Touch controls are at least 48px, copy is sentence case with no emoji, and the Inter-only token system remains unchanged.
@@ -239,42 +239,48 @@ git commit -m "feat(abandonment): add idle timer state machine"
 - Modify: `src/lib/payment.ts` after `reconcilePaymentAttempt`
 
 **Interfaces:**
-- Consumes: active `attemptId` and `orderId` from `CheckoutScreen`.
-- Produces: `expirePaymentAttempt` named `createServerFn`, `ExpirePaymentAttemptInput`, `ExpirePaymentAttemptResult`, and `PaymentAttemptError` behavior for malformed/unknown IDs.
+- Consumes: active `attemptId` (the order ID remains local checkout state and is not sent).
+- Produces: `expirePaymentAttempt` named `createServerFn`, `ExpirePaymentAttemptInput`, `ExpirePaymentAttemptResult`, and `PaymentAttemptError` behavior for malformed/unknown/resolved IDs.
 
 - [ ] **Step 1: Add a focused failing unit assertion**
 
-Extend `src/lib/checkout.test.ts` (or create `src/lib/payment.test.ts` if the existing file does not own payment adapter tests) with a direct handler test that calls the local handler with an unknown ID and expects `PaymentAttemptError` code `attempt_not_found`, and a valid attempt created by `startPaymentAttemptHandler` that returns `{ attemptStatus: "expired", orderStatus: "expired" }`. The test must fail before the handler exists.
+Extend `src/lib/payment.test.ts` with a direct handler test that calls the local handler with an unknown attempt ID and expects `PaymentAttemptError`, and a valid attempt created by `startPaymentAttemptHandler` that returns `{ attemptStatus: "expired", orderStatus: "expired", amountCents }`. The test must fail before the handler exists.
 
 - [ ] **Step 2: Implement the documented local stub**
 
 Add:
 
 ```ts
-export type ExpirePaymentAttemptInput = { attemptId: string; orderId: string };
+export type ExpirePaymentAttemptInput = { attemptId: string };
 export type ExpirePaymentAttemptResult = {
   attemptId: string;
   orderId: string;
   attemptStatus: "expired";
   orderStatus: "expired";
+  amountCents: number;
 };
 
 export const expirePaymentAttemptHandler = ({
   attemptId,
-  orderId,
 }: ExpirePaymentAttemptInput): ExpirePaymentAttemptResult => {
-  if (!attemptId || !orderId) {
+  if (!attemptId) {
     throw new PaymentAttemptError("invalid_input", "Payment attempt identity is required");
   }
   const attempt = paymentAttempts.get(attemptId);
-  if (!attempt || attempt.orderId !== orderId) {
+  if (!attempt) {
     throw new PaymentAttemptError("attempt_not_found", "Payment attempt was not found");
   }
   if (attempt.status !== "pending") {
     throw new PaymentAttemptError("attempt_resolved", "Payment attempt is already resolved");
   }
   attempt.status = "expired";
-  return { attemptId, orderId, attemptStatus: "expired", orderStatus: "expired" };
+  return {
+    attemptId,
+    orderId: attempt.orderId,
+    attemptStatus: "expired",
+    orderStatus: "expired",
+    amountCents: attempt.expectedAmountCents,
+  };
 };
 
 export const expirePaymentAttempt = createServerFn({ method: "POST" })
@@ -311,7 +317,13 @@ In `use-abandonment.ts`, define:
 
 ```ts
 export type PaymentPendingContext = {
-  phase: "creating_order" | "starting_attempt" | "taking_payment" | "reconciling" | "failed";
+  phase:
+    | "creating_order"
+    | "starting_attempt"
+    | "taking_payment"
+    | "reconciling"
+    | "failed"
+    | "confirmed";
   orderId: string | null;
   attemptId: string | null;
 };
@@ -326,7 +338,7 @@ export type UseAbandonmentInput = {
 
 Read `import.meta.env.VITE_CART_IDLE_TIMEOUT_MS` with fallback `45_000`, and `VITE_CART_IDLE_COUNTDOWN_SECONDS` with fallback `15`; accept only finite non-negative integers (countdown must be at least 1). The hook owns one idle timeout and one one-second countdown interval, clears both on every reset/deactivation/unmount, and uses the pure transition helper with `Date.now()`.
 
-When cart is empty, payment is null, or payment is confirmed (represented by `payment: null` after parent completion), transition to `inactive`. When a warning starts, snapshot `cart.map` into a new JSON-safe array and store its warning start timestamp. On normal cart expiry, call `usePostHog().capture("cart_abandoned", properties)` in a try/finally-safe callback, then call `onClearCart`; do not emit this event when `payment` is non-null. For payment expiry, await `expirePaymentAttempt({ data: { attemptId, orderId } })` if both IDs exist, then call `onCancelPayment` and `onClearCart` even when the adapter rejects, so a stale UI cannot trap the kiosk. Guard async completion with a mounted ref.
+When cart is empty or payment is confirmed, transition to `inactive`. When a warning starts, snapshot `cart.map` into a new JSON-safe array and store its warning start timestamp. On normal cart expiry, call `usePostHog().capture("cart_abandoned", properties)` in a try/finally-safe callback, then call `onClearCart`; do not emit this event when `payment` is non-null. For payment expiry, await `expirePaymentAttempt({ data: { attemptId } })` when an attempt ID exists, then call `onCancelPayment` and `onClearCart` even when the adapter rejects, so a stale UI cannot trap the kiosk. Keep order ID in local checkout context for UI bookkeeping but never send it to the expiry server function. Guard async completion with a mounted ref.
 
 Expose `reset` for root interaction and the current warning phase/count. Depend on stable callbacks or refs so each cart/phase update does not create duplicate timers.
 

@@ -299,7 +299,6 @@ export const reconcilePaymentAttemptHandler = ({
 };
 export type ExpirePaymentAttemptInput = {
   attemptId: string;
-  orderId: string;
 };
 
 export type ExpirePaymentAttemptResult = {
@@ -307,17 +306,17 @@ export type ExpirePaymentAttemptResult = {
   orderId: string;
   attemptStatus: "expired";
   orderStatus: "expired";
+  amountCents: number;
 };
 
 export const expirePaymentAttemptHandler = ({
   attemptId,
-  orderId,
 }: ExpirePaymentAttemptInput): ExpirePaymentAttemptResult => {
-  if (!attemptId || !orderId) {
+  if (!attemptId) {
     throw new PaymentAttemptError("invalid_input", "Payment attempt identity is required");
   }
   const attempt = paymentAttempts.get(attemptId);
-  if (!attempt || attempt.orderId !== orderId) {
+  if (!attempt) {
     throw new PaymentAttemptError("attempt_not_found", "Payment attempt was not found");
   }
   if (attempt.status !== "pending") {
@@ -326,9 +325,10 @@ export const expirePaymentAttemptHandler = ({
   attempt.status = "expired";
   return {
     attemptId,
-    orderId,
+    orderId: attempt.orderId,
     attemptStatus: "expired",
     orderStatus: "expired",
+    amountCents: attempt.expectedAmountCents,
   };
 };
 

@@ -121,7 +121,6 @@ The local adapter exposes:
 ```ts
 export type ExpirePaymentAttemptInput = {
   attemptId: string;
-  orderId: string;
 };
 
 export type ExpirePaymentAttemptResult = {
@@ -129,6 +128,7 @@ export type ExpirePaymentAttemptResult = {
   orderId: string;
   attemptStatus: "expired";
   orderStatus: "expired";
+  amountCents: number;
 };
 
 export const expirePaymentAttempt: ServerFn<
@@ -137,11 +137,12 @@ export const expirePaymentAttempt: ServerFn<
 >;
 ```
 
-The browser sends the active attempt and order IDs only. The local stub records
-an expired result and rejects malformed or unknown IDs in the same typed error
-style as the existing payment functions. The hook awaits this call before
-resetting the cart and cancelling checkout. A rejected request is surfaced to
-an error boundary/logging path while the customer is still released from the
+The browser sends the active attempt ID only. The local stub looks up the
+attempt's owning order, records an expired result, and rejects malformed,
+unknown, or already-resolved attempts in the same typed error style as the
+existing payment functions. The hook awaits this call before resetting the
+cart and cancelling checkout. A rejected request is surfaced to an
+error-boundary/logging path while the customer is still released from the
 stale payment screen; the backend implementation remains responsible for
 ensuring no pending order can reach kitchen.
 
