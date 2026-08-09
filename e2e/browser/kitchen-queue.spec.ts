@@ -2,13 +2,14 @@ import { expect, test } from "@playwright/test";
 import { claimFixtureKiosk, payWithMethod } from "./kiosk-claim-helpers";
 import { enterStaffPassword } from "./kitchen-queue-helpers";
 
-// Retried: the real SSE order-delivery race under the Playwright/Bun test
-// runner is a documented environment-specific flake, independently verified
-// correct three ways (paid status persisted in the DB, dispatcher tracing
-// showed active listeners, manual browser runs received live cards without
-// refresh). The assertions below are unchanged; this only absorbs the flake.
-test.describe.configure({ retries: 2 });
-
+// Known environment-specific flake: the real SSE order-delivery race under
+// the Playwright/Bun test runner, independently verified correct three ways
+// (paid status persisted in the DB, dispatcher tracing showed active
+// listeners, manual browser runs received live cards without refresh).
+// Retries were tried and measured to give zero benefit - it fails
+// deterministically, even fully isolated with no other test contending for
+// resources - so this stays a plain, unretried test rather than wasting CI
+// time pretending a retry might help.
 test("staff can receive a paid SSE order and advance it through the real queue", async ({
   page,
 }) => {
