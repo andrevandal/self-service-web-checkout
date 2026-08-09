@@ -61,6 +61,7 @@ jobs:
         with:
           name: seeded-db
           path: .data/
+          include-hidden-files: true
           if-no-files-found: error
 
       - name: Build core E2E application
@@ -71,6 +72,7 @@ jobs:
         with:
           name: build-core
           path: .output-e2e-core/
+          include-hidden-files: true
           if-no-files-found: error
 
       - name: Build abandonment E2E application
@@ -81,6 +83,7 @@ jobs:
         with:
           name: build-abandonment
           path: .output-e2e-abandonment/
+          include-hidden-files: true
           if-no-files-found: error
 
   e2e:
