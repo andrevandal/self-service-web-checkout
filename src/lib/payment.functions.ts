@@ -15,6 +15,7 @@ export type {
   ExpirePaymentAttemptResult,
   PaymentAttemptErrorCode,
   PaymentAttemptStatus,
+  PaymentMethod,
   PaymentReceipt,
   ReconcilePaymentAttemptInput,
   ReconcilePaymentAttemptResult,

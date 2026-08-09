@@ -342,7 +342,9 @@ test("approved payment emits a full paid order after reconciliation commits", as
     paidAt: null,
   });
   setKioskCookie();
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   const events: unknown[] = [];
   const unsubscribe = kitchenEventDispatcher.subscribe((event) => events.push(event));
 
@@ -354,6 +356,7 @@ test("approved payment emits a full paid order after reconciliation commits", as
           terminalCommand: attempt.terminalCommand,
           reference: "receipt-event",
           amountCents: attempt.expectedAmountCents,
+          method: "credit",
           outcome: "approved",
         },
       }),
@@ -380,7 +383,7 @@ test("approved payment emits a full paid order after reconciliation commits", as
       paidAt: null,
     });
     const declinedAttempt = await withStartContext(() =>
-      startPaymentAttemptHandler({ orderId: declinedOrderId }),
+      startPaymentAttemptHandler({ orderId: declinedOrderId, method: "credit" }),
     );
     await withStartContext(() =>
       reconcilePaymentAttemptHandler({
@@ -389,6 +392,7 @@ test("approved payment emits a full paid order after reconciliation commits", as
           terminalCommand: declinedAttempt.terminalCommand,
           reference: "receipt-declined-event",
           amountCents: declinedAttempt.expectedAmountCents,
+          method: "credit",
           outcome: "declined",
         },
       }),

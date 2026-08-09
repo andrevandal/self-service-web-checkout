@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { claimFixtureKiosk } from "./kiosk-claim-helpers";
+import { claimFixtureKiosk, payWithMethod } from "./kiosk-claim-helpers";
 
 const addClassicToastie = async (page: Page) => {
   await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).click();
@@ -66,7 +66,7 @@ test("captures cart abandonment and returns to an empty menu", async ({ page }) 
 test("expires a payment-pending attempt before returning to the menu", async ({ page }) => {
   await claimFixtureKiosk(page);
   await addClassicToastie(page);
-  await page.getByRole("button", { name: "Pay" }).click();
+  await payWithMethod(page);
   await expect(page.getByRole("heading", { name: "Taking payment" })).toBeVisible({
     timeout: 15_000,
   });

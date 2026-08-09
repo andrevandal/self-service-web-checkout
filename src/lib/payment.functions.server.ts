@@ -12,6 +12,18 @@ import { captureDomainEvent } from "./posthog.server";
 
 const PAYMENT_ATTEMPT_EXPIRY_MS = 120_000;
 
+export type PaymentMethod = "credit" | "debit";
+
+// Distinct simulated processor/merchant tokens per payment method - a real
+// integration would route credit and debit through different token/network
+// rails even though both flow through the same physical pinpad
+// (`executeTerminalCommand` in #/lib/terminal stays a single entry point
+// regardless of which method is selected).
+const PAYMENT_METHOD_TOKENS: Record<PaymentMethod, string> = {
+  credit: "tok_sim_credit_default",
+  debit: "tok_sim_debit_default",
+};
+
 export type PaymentAttemptStatus =
   | "pending"
   | "approved"
@@ -24,11 +36,13 @@ export type PaymentReceipt = {
   terminalCommand: string;
   reference: string;
   amountCents: number;
+  method: PaymentMethod;
   outcome: "approved" | "declined" | "unavailable";
 };
 
 export type StartPaymentAttemptInput = {
   orderId: string;
+  method: PaymentMethod;
 };
 
 export type StartPaymentAttemptResult = {
@@ -37,6 +51,7 @@ export type StartPaymentAttemptResult = {
   status: "pending";
   terminalCommand: string;
   expectedAmountCents: number;
+  method: PaymentMethod;
   expiresAt: string;
 };
 
@@ -128,12 +143,14 @@ const toPaymentEventProperties = ({
 
 const startPaymentAttemptInputSchema = v.object({
   orderId: v.pipe(v.string(), v.minLength(1)),
+  method: v.picklist(["credit", "debit"]),
 });
 
 const paymentReceiptSchema = v.object({
   terminalCommand: v.pipe(v.string(), v.minLength(1)),
   reference: v.pipe(v.string(), v.minLength(1)),
   amountCents: v.pipe(v.number(), v.integer(), v.minValue(0)),
+  method: v.picklist(["credit", "debit"]),
   outcome: v.picklist(["approved", "declined", "unavailable"]),
 });
 
@@ -246,11 +263,12 @@ export const startPaymentAttemptHandler = async (
     const createdAt = new Date();
     const expiresAt = new Date(createdAt.getTime() + PAYMENT_ATTEMPT_EXPIRY_MS);
     const id = randomUUID();
-    const terminalCommand = `fake-terminal:${randomUUID()}`;
+    const terminalCommand = `fake-terminal:${data.method}:${PAYMENT_METHOD_TOKENS[data.method]}:${randomUUID()}`;
     await tx.insert(paymentAttempts).values({
       id,
       orderId: order.id,
       status: "pending",
+      method: data.method,
       terminalCommand,
       receipt: null,
       expectedAmountCents: order.totalAmountCents,
@@ -266,6 +284,7 @@ export const startPaymentAttemptHandler = async (
         status: "pending" as const,
         terminalCommand,
         expectedAmountCents: order.totalAmountCents,
+        method: data.method,
         expiresAt: expiresAt.toISOString(),
       },
       kioskId: kiosk.id,

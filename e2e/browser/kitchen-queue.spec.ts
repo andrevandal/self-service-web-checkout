@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { claimFixtureKiosk } from "./kiosk-claim-helpers";
+import { claimFixtureKiosk, payWithMethod } from "./kiosk-claim-helpers";
 import { enterStaffPassword } from "./kitchen-queue-helpers";
 
 test("staff can receive a paid SSE order and advance it through the real queue", async ({
@@ -14,7 +14,7 @@ test("staff can receive a paid SSE order and advance it through the real queue",
 
   await claimFixtureKiosk(page);
   await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).click();
-  await page.getByRole("button", { name: "Pay" }).click();
+  await payWithMethod(page);
   await expect(page.getByRole("heading", { name: "Payment complete" })).toBeVisible();
 
   const orderNumber = await page.getByText(/^[A-Z]-\d+$/).textContent();

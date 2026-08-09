@@ -15,6 +15,7 @@ import { expirePaymentAttempt } from "#/lib/payment.functions";
 
 export type PaymentContext = {
   phase:
+    | "choosing_method"
     | "creating_order"
     | "starting_attempt"
     | "taking_payment"
