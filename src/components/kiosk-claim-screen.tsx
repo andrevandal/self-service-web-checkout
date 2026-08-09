@@ -2,8 +2,17 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, KeyRound, Store } from "lucide-react";
 import { KioskShell } from "#/components/kiosk-shell";
-import { claimKiosk, listKiosks, normalizePrefix, type KioskClaimInput } from "#/lib/kiosk-session";
+import {
+  claimKiosk,
+  listKiosks,
+  verifySetupPassword,
+  type ClaimKioskInput,
+} from "#/lib/kiosk.functions";
 
+const normalizePrefix = (value: string): string | null => {
+  const prefix = value.trim().toUpperCase();
+  return /^[A-Z0-9]{1,5}$/.test(prefix) ? prefix : null;
+};
 const claimErrorCopy: Record<string, string> = {
   invalid_password: "That setup password is not correct.",
   configuration: "Kiosk setup is temporarily unavailable. Try again.",
@@ -41,10 +50,21 @@ export const KioskClaimScreen = () => {
   });
 
   const claimMutation = useMutation({
-    mutationFn: (data: KioskClaimInput) => claimKiosk({ data }),
+    mutationFn: (data: ClaimKioskInput) => claimKiosk({ data }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["kiosk-session"] });
       window.location.reload();
+    },
+  });
+
+  const verifyPasswordMutation = useMutation({
+    mutationFn: (data: { password: string }) => verifySetupPassword({ data }),
+    onSuccess: () => {
+      setPasswordError(null);
+      setSetupReady(true);
+    },
+    onError: (error) => {
+      setPasswordError(errorCopy(error, "We could not verify that password. Try again."));
     },
   });
 
@@ -55,7 +75,7 @@ export const KioskClaimScreen = () => {
       return;
     }
     setPasswordError(null);
-    setSetupReady(true);
+    verifyPasswordMutation.mutate({ password });
   };
 
   const claimExisting = (kioskId: string) => {
@@ -138,10 +158,11 @@ export const KioskClaimScreen = () => {
               ) : null}
             </div>
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={verifyPasswordMutation.isPending}
               type="submit"
             >
-              Continue
+              {verifyPasswordMutation.isPending ? "Verifying…" : "Continue"}
               <ArrowRight aria-hidden size={20} strokeWidth={2} />
             </button>
           </form>

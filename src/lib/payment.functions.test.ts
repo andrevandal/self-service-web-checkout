@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { createTestDatabase, mockDatabaseModule, withStartContext } from "#/test/db-test-support";
 import { kioskOrderCounters, orders, paymentAttempts } from "#/db/schema";
-import type { PaymentReceipt, StartPaymentAttemptResult } from "./payment.functions";
+import type { PaymentReceipt, StartPaymentAttemptResult } from "./payment.functions.server";
 
 const db = await createTestDatabase(`file:/tmp/self-service-payment-${randomUUID()}.db`);
 await db.run(sql`
@@ -38,7 +38,7 @@ const {
   expirePaymentAttemptHandler,
   reconcilePaymentAttemptHandler,
   startPaymentAttemptHandler,
-} = await import("./payment.functions");
+} = await import("./payment.functions.server");
 
 const setKioskCookie = (kioskId: string) => {
   requestCookie = `kiosk_session=${signKioskCookie(
@@ -75,6 +75,7 @@ const approvedReceipt = (
   terminalCommand: attempt.terminalCommand,
   reference: "receipt-reference",
   amountCents: attempt.expectedAmountCents,
+  method: attempt.method,
   outcome: "approved",
   ...overrides,
 });
@@ -103,7 +104,9 @@ test("approved reconciliation marks the order paid and allocates a kiosk-prefixe
   });
   const orderId = await insertPendingOrder({ id: "order-1" });
 
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   expect(attempt).toMatchObject({
     orderId,
     status: "pending",
@@ -161,7 +164,7 @@ test("approved reconciliation marks the order paid and allocates a kiosk-prefixe
 
   const secondOrderId = await insertPendingOrder({ id: "order-2" });
   const secondAttempt = await withStartContext(() =>
-    startPaymentAttemptHandler({ orderId: secondOrderId }),
+    startPaymentAttemptHandler({ orderId: secondOrderId, method: "credit" }),
   );
   const secondResult = await withStartContext(() =>
     reconcilePaymentAttemptHandler({
@@ -188,7 +191,9 @@ test("approved reconciliation marks the order paid and allocates a kiosk-prefixe
 
 test("reconciliation rejects a receipt from a different kiosk without changing the attempt", async () => {
   const orderId = await insertPendingOrder({ id: "order-owner" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   setKioskCookie("kiosk-b");
 
   await expect(
@@ -209,7 +214,9 @@ test("reconciliation rejects a receipt from a different kiosk without changing t
 
 test("reconciliation records an expired attempt and rejects it", async () => {
   const orderId = await insertPendingOrder({ id: "order-expired" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   await db
     .update(paymentAttempts)
     .set({ expiresAt: new Date(0) })
@@ -234,7 +241,9 @@ test("reconciliation records an expired attempt and rejects it", async () => {
 
 test("reconciliation rejects an already-resolved attempt without allocating twice", async () => {
   const orderId = await insertPendingOrder({ id: "order-resolved" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   const firstResult = await withStartContext(() =>
     reconcilePaymentAttemptHandler({
       attemptId: attempt.id,
@@ -264,7 +273,9 @@ test("reconciliation rejects an already-resolved attempt without allocating twic
 
 test("reconciliation records a wrong amount as invalid", async () => {
   const orderId = await insertPendingOrder({ id: "order-wrong-amount" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
 
   await expect(
     withStartContext(() =>
@@ -285,7 +296,9 @@ test("reconciliation records a wrong amount as invalid", async () => {
 
 test("reconciliation records a command mismatch as invalid", async () => {
   const orderId = await insertPendingOrder({ id: "order-wrong-command" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
 
   await expect(
     withStartContext(() =>
@@ -305,7 +318,9 @@ test("reconciliation records a command mismatch as invalid", async () => {
 
 test("declined and unavailable attempts stay pending and can be retried with new attempts", async () => {
   const orderId = await insertPendingOrder({ id: "order-retry" });
-  const declinedAttempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const declinedAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   const declinedResult = await withStartContext(() =>
     reconcilePaymentAttemptHandler({
       attemptId: declinedAttempt.id,
@@ -321,7 +336,9 @@ test("declined and unavailable attempts stay pending and can be retried with new
     orderNumber: null,
   });
 
-  const unavailableAttempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const unavailableAttempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
   const unavailableResult = await withStartContext(() =>
     reconcilePaymentAttemptHandler({
       attemptId: unavailableAttempt.id,
@@ -350,7 +367,7 @@ test("declined and unavailable attempts stay pending and can be retried with new
 
 test("input validation rejects malformed attempt and receipt data", async () => {
   await expect(
-    withStartContext(() => startPaymentAttemptHandler({ orderId: "" })),
+    withStartContext(() => startPaymentAttemptHandler({ orderId: "", method: "credit" })),
   ).rejects.toMatchObject({ code: "invalid_input" });
   await expect(
     withStartContext(() =>
@@ -360,6 +377,7 @@ test("input validation rejects malformed attempt and receipt data", async () => 
           terminalCommand: "command",
           reference: "reference",
           amountCents: 1_250,
+          method: "credit",
           outcome: "approved",
         },
       }),
@@ -373,6 +391,7 @@ test("input validation rejects malformed attempt and receipt data", async () => 
           terminalCommand: "command",
           reference: "",
           amountCents: 1_250,
+          method: "credit",
           outcome: "approved",
         },
       }),
@@ -382,7 +401,9 @@ test("input validation rejects malformed attempt and receipt data", async () => 
 
 test("explicit expiry resolves the attempt and order and blocks reconciliation", async () => {
   const orderId = await insertPendingOrder({ id: "order-expire" });
-  const attempt = await withStartContext(() => startPaymentAttemptHandler({ orderId }));
+  const attempt = await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId, method: "credit" }),
+  );
 
   const result = await withStartContext(() =>
     expirePaymentAttemptHandler({ attemptId: attempt.id }),
@@ -417,12 +438,14 @@ test("explicit expiry resolves the attempt and order and blocks reconciliation",
 });
 test("captures payment domain outcomes without exposing terminal data", async () => {
   const startedOrderId = await insertPendingOrder({ id: "order-started-event" });
-  await withStartContext(() => startPaymentAttemptHandler({ orderId: startedOrderId }));
+  await withStartContext(() =>
+    startPaymentAttemptHandler({ orderId: startedOrderId, method: "credit" }),
+  );
   expect(capturedDomainEvents.map(({ event }) => event)).toEqual(["payment_attempt_started"]);
 
   const declinedOrderId = await insertPendingOrder({ id: "order-declined-event" });
   const declinedAttempt = await withStartContext(() =>
-    startPaymentAttemptHandler({ orderId: declinedOrderId }),
+    startPaymentAttemptHandler({ orderId: declinedOrderId, method: "credit" }),
   );
   await withStartContext(() =>
     reconcilePaymentAttemptHandler({
@@ -437,7 +460,7 @@ test("captures payment domain outcomes without exposing terminal data", async ()
 
   const approvedOrderId = await insertPendingOrder({ id: "order-approved-event" });
   const approvedAttempt = await withStartContext(() =>
-    startPaymentAttemptHandler({ orderId: approvedOrderId }),
+    startPaymentAttemptHandler({ orderId: approvedOrderId, method: "credit" }),
   );
   await withStartContext(() =>
     reconcilePaymentAttemptHandler({
@@ -448,7 +471,7 @@ test("captures payment domain outcomes without exposing terminal data", async ()
 
   const expiredOrderId = await insertPendingOrder({ id: "order-safety-expired-event" });
   const expiredAttempt = await withStartContext(() =>
-    startPaymentAttemptHandler({ orderId: expiredOrderId }),
+    startPaymentAttemptHandler({ orderId: expiredOrderId, method: "credit" }),
   );
   await db
     .update(paymentAttempts)
@@ -465,7 +488,7 @@ test("captures payment domain outcomes without exposing terminal data", async ()
 
   const explicitOrderId = await insertPendingOrder({ id: "order-explicit-expired-event" });
   const explicitAttempt = await withStartContext(() =>
-    startPaymentAttemptHandler({ orderId: explicitOrderId }),
+    startPaymentAttemptHandler({ orderId: explicitOrderId, method: "credit" }),
   );
   await withStartContext(() => expirePaymentAttemptHandler({ attemptId: explicitAttempt.id }));
 

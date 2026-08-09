@@ -2,17 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import type { CartState } from "#/lib/cart";
+import { cartToCreateOrderInput } from "#/lib/checkout";
+import type { CreateOrderInput, CreateOrderResult } from "#/lib/order.functions";
+import { createOrder } from "#/lib/order.functions";
 import {
-  cartToCreateOrderInput,
-  type CreateOrderInput,
-  type CreateOrderResult,
-} from "#/lib/checkout";
-import {
-  createOrder,
   reconcilePaymentAttempt,
   startPaymentAttempt,
+  type PaymentMethod,
   type PaymentReceipt,
-} from "#/lib/payment";
+} from "#/lib/payment.functions";
 import { printReceipt } from "#/lib/printer";
 import { executeTerminalCommand } from "#/lib/terminal";
 
@@ -28,6 +26,7 @@ export type CheckoutScreenProps = {
 };
 
 export type CheckoutPhase =
+  | "choosing_method"
   | "creating_order"
   | "starting_attempt"
   | "taking_payment"
@@ -64,8 +63,8 @@ export const CheckoutScreen = ({
   onPaymentStateChange,
 }: CheckoutScreenProps) => {
   const activeRunRef = useRef(0);
-  const createPendingOrderRef = useRef<() => Promise<void>>(() => Promise.resolve());
-  const [phase, setPhase] = useState<CheckoutPhase>("creating_order");
+  const [phase, setPhase] = useState<CheckoutPhase>("choosing_method");
+  const [method, setMethod] = useState<PaymentMethod | null>(null);
   const [order, setOrder] = useState<CreateOrderResult | null>(null);
   const [attemptId, setAttemptId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
@@ -75,14 +74,15 @@ export const CheckoutScreen = ({
     mutationFn: (input: CreateOrderInput) => createOrder({ data: input }),
   });
   const startAttemptMutation = useMutation({
-    mutationFn: (input: { orderId: string }) => startPaymentAttempt({ data: input }),
+    mutationFn: (input: { orderId: string; method: PaymentMethod }) =>
+      startPaymentAttempt({ data: input }),
   });
   const reconcileMutation = useMutation({
     mutationFn: (input: { attemptId: string; receipt: PaymentReceipt }) =>
       reconcilePaymentAttempt({ data: input }),
   });
 
-  const runAttempt = async (orderId: string, runId: number) => {
+  const runAttempt = async (orderId: string, runId: number, attemptMethod: PaymentMethod) => {
     if (activeRunRef.current !== runId) {
       return;
     }
@@ -90,7 +90,7 @@ export const CheckoutScreen = ({
     setAttemptId(null);
     setPhase("starting_attempt");
     try {
-      const attempt = await startAttemptMutation.mutateAsync({ orderId });
+      const attempt = await startAttemptMutation.mutateAsync({ orderId, method: attemptMethod });
       if (activeRunRef.current !== runId) {
         return;
       }
@@ -98,6 +98,7 @@ export const CheckoutScreen = ({
       setPhase("taking_payment");
       const receipt = await executeTerminalCommand(attempt.terminalCommand, {
         expectedAmountCents: attempt.expectedAmountCents,
+        method: attempt.method,
       });
       if (activeRunRef.current !== runId) {
         return;
@@ -129,7 +130,7 @@ export const CheckoutScreen = ({
     }
   };
 
-  const createPendingOrder = async () => {
+  const createPendingOrder = async (orderMethod: PaymentMethod) => {
     const runId = ++activeRunRef.current;
     setPhase("creating_order");
     setFailureMessage(START_FAILURE_COPY);
@@ -139,7 +140,7 @@ export const CheckoutScreen = ({
         return;
       }
       setOrder(createdOrder);
-      await runAttempt(createdOrder.id, runId);
+      await runAttempt(createdOrder.id, runId, orderMethod);
     } catch {
       if (activeRunRef.current === runId) {
         setFailureMessage(START_FAILURE_COPY);
@@ -147,10 +148,13 @@ export const CheckoutScreen = ({
       }
     }
   };
-  createPendingOrderRef.current = createPendingOrder;
+
+  const handleSelectMethod = (selected: PaymentMethod) => {
+    setMethod(selected);
+    void createPendingOrder(selected);
+  };
 
   useEffect(() => {
-    void createPendingOrderRef.current();
     return () => {
       activeRunRef.current += 1;
     };
@@ -172,6 +176,42 @@ export const CheckoutScreen = ({
     const timeout = window.setTimeout(onComplete, 2_000);
     return () => window.clearTimeout(timeout);
   }, [confirmationPhase, onComplete]);
+
+  if (phase === "choosing_method") {
+    return (
+      <main className="flex h-dvh min-h-dvh items-center justify-center bg-background px-6 py-10 text-center">
+        <div className="flex w-full max-w-xl flex-col items-center gap-6 rounded-lg bg-card p-8 shadow-md">
+          <div>
+            <p className="text-body-s font-semibold text-primary">Checkout</p>
+            <h1 className="mt-2 text-display-m font-extrabold">How would you like to pay?</h1>
+          </div>
+          <div className="flex w-full flex-col gap-3 sm:flex-row sm:justify-center">
+            <button
+              className="inline-flex min-h-12 flex-1 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              onClick={() => handleSelectMethod("credit")}
+              type="button"
+            >
+              Credit card
+            </button>
+            <button
+              className="inline-flex min-h-12 flex-1 items-center justify-center rounded-pill border border-border px-6 py-3 font-semibold transition-transform duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+              onClick={() => handleSelectMethod("debit")}
+              type="button"
+            >
+              Debit card
+            </button>
+          </div>
+          <button
+            className="inline-flex min-h-12 items-center justify-center rounded-pill border border-border px-6 py-3 font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+            onClick={onCancel}
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </main>
+    );
+  }
 
   if (phase === "confirmed") {
     return (
@@ -212,10 +252,10 @@ export const CheckoutScreen = ({
             <button
               className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               onClick={() => {
-                if (order) {
-                  void runAttempt(order.id, ++activeRunRef.current);
-                } else {
-                  void createPendingOrder();
+                if (order && method) {
+                  void runAttempt(order.id, ++activeRunRef.current, method);
+                } else if (method) {
+                  void createPendingOrder(method);
                 }
               }}
               type="button"

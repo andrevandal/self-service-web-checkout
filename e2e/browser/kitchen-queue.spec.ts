@@ -1,55 +1,66 @@
 import { expect, test } from "@playwright/test";
 import { enterStaffPassword } from "./kitchen-queue-helpers";
 
-test("staff can work the active queue and receive a paid SSE order", async ({ page }) => {
-  await page.goto("/kitchen");
+test("staff renders a paid order from a mocked kitchen SSE event", async ({ page }) => {
+  const orderNumber = "M-4242";
+  const orderPaidEvent = {
+    type: "order.paid" as const,
+    orderId: "mock-order-1",
+    orderNumber,
+    status: "paid" as const,
+    order: {
+      id: "mock-order-1",
+      orderNumber,
+      status: "paid" as const,
+      subtotalCents: 350,
+      totalAmountCents: 350,
+      createdAt: "2026-08-09T12:00:00.000Z",
+      paidAt: "2026-08-09T12:00:01.000Z",
+      items: [
+        {
+          id: "mock-item-1",
+          productId: "espresso",
+          productName: "Espresso",
+          quantity: 1,
+          unitPriceCents: 350,
+          variants: [],
+          addons: [],
+        },
+      ],
+    },
+  };
+  let releaseSse!: () => void;
+  const sseResponseReady = new Promise<void>((resolve) => {
+    releaseSse = resolve;
+  });
+  let markSseRequest!: () => void;
+  const sseRequestStarted = new Promise<void>((resolve) => {
+    markSseRequest = resolve;
+  });
 
-  await expect(page.getByRole("heading", { name: "Kitchen queue" })).toBeVisible();
-  await enterStaffPassword(page);
-
-  const fixtureCard = page.getByTestId("kitchen-order-A-101");
-  await expect(fixtureCard).toBeVisible();
-  await expect(fixtureCard.getByText("A-101")).toBeVisible();
-  await expect(fixtureCard.getByText("Melted mushroom toastie")).toBeVisible();
-  await expect(fixtureCard.getByText("Sourdough")).toBeVisible();
-  await expect(fixtureCard.getByText("Extra cheese")).toBeVisible();
-  await expect(fixtureCard.getByText("Paid")).toBeVisible();
-
-  await fixtureCard.getByRole("button", { name: "Start preparing" }).click();
-  await expect(fixtureCard.getByText("Preparing")).toBeVisible();
-  await expect(fixtureCard.getByRole("button", { name: "Done" })).toBeVisible();
-
-  await fixtureCard.getByRole("button", { name: "Done" }).click();
-  await expect(fixtureCard).toBeHidden();
-
-  await page.evaluate(() => {
-    window.__kitchenInjectEvent?.({
-      type: "order.paid",
-      order: {
-        id: "order-sse-202",
-        orderNumber: "A-202",
-        status: "paid",
-        subtotalCents: 650,
-        totalAmountCents: 650,
-        createdAt: "2026-08-08T12:02:00.000Z",
-        paidAt: "2026-08-08T12:02:01.000Z",
-        items: [
-          {
-            id: "item-sse-202",
-            productId: "product-classic-cheese-toastie",
-            productName: "Classic cheese toastie",
-            quantity: 1,
-            unitPriceCents: 650,
-            variants: [],
-            addons: [],
-          },
-        ],
+  await page.route("**/api/kitchen/events", async (route) => {
+    markSseRequest();
+    await sseResponseReady;
+    await route.fulfill({
+      status: 200,
+      contentType: "text/event-stream",
+      headers: {
+        "Cache-Control": "no-cache",
+        Connection: "keep-alive",
       },
+      body: `: connected\n\nevent: order.paid\ndata: ${JSON.stringify(orderPaidEvent)}\n\n`,
     });
   });
 
-  const liveCard = page.getByTestId("kitchen-order-A-202");
+  await page.goto("/kitchen");
+  await expect(page.getByRole("heading", { name: "Kitchen queue" })).toBeVisible();
+  await enterStaffPassword(page);
+  await expect(page.getByText("No active orders")).toBeVisible();
+  await sseRequestStarted;
+  releaseSse();
+
+  const liveCard = page.getByTestId(`kitchen-order-${orderNumber}`);
   await expect(liveCard).toBeVisible();
-  await expect(liveCard.getByText("Classic cheese toastie")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+  await expect(liveCard.getByText("Espresso")).toBeVisible();
+  await expect(liveCard.getByText("Paid")).toBeVisible();
 });

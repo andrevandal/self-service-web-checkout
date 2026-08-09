@@ -27,6 +27,8 @@ declare module 'virtual:env/server' {
     readonly KIOSK_COOKIE_SECURE: string
     readonly STAFF_COOKIE_SECRET: string
     readonly STAFF_COOKIE_SECURE: string
+    readonly POSTHOG_KEY: string
+    readonly POSTHOG_HOST: string
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
     readonly VITE_TERMINAL_DELAY_MS: string

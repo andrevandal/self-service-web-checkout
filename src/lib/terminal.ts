@@ -1,9 +1,10 @@
-import type { PaymentReceipt } from "#/lib/payment";
+import type { PaymentMethod, PaymentReceipt } from "#/lib/payment.functions";
 
 export type TerminalOutcome = "approved" | "declined" | "unavailable";
 export type TerminalOptions = {
   delayMs?: number;
   expectedAmountCents: number;
+  method: PaymentMethod;
   outcome?: TerminalOutcome;
 };
 
@@ -15,6 +16,9 @@ const configuredDelayMs = (): number => {
   return Number.isFinite(value) ? value : 350;
 };
 
+// Every payment method is executed through this single function - one
+// physical pinpad handling multiple differentiated payment method tokens
+// (see PAYMENT_METHOD_TOKENS in #/lib/payment.functions.server).
 export const executeTerminalCommand = async (
   command: string,
   options: TerminalOptions,
@@ -26,6 +30,7 @@ export const executeTerminalCommand = async (
     terminalCommand: command,
     reference: `sim-reference-${crypto.randomUUID()}`,
     amountCents: options.expectedAmountCents,
+    method: options.method,
     outcome: options.outcome ?? "approved",
   };
 };

@@ -120,6 +120,7 @@ export const paymentAttempts = sqliteTable("payment_attempts", {
     .notNull()
     .references(() => orders.id, { onDelete: "cascade" }),
   status: text("status").notNull(),
+  method: text("method").notNull(),
   terminalCommand: text("terminal_command").notNull(),
   receipt: text("receipt"),
   expectedAmountCents: integer("expected_amount_cents").notNull(),

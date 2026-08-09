@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   checks:
+    name: Lint, format, typecheck, unit tests
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -38,14 +39,66 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
+  e2e:
+    name: E2E (${{ matrix.spec }})
+    needs: checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: core
+            spec: checkout-payment.spec.ts
+          - project: core
+            spec: design-system-shell.spec.ts
+          - project: core
+            spec: home.spec.ts
+          - project: core
+            spec: kiosk-claim.spec.ts
+          - project: core
+            spec: kitchen-queue.spec.ts
+          - project: core
+            spec: menu-cart.spec.ts
+          - project: abandonment
+            spec: abandonment-ux.spec.ts
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize
+        uses: ./.github/actions/init
+
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
 
       - name: Run end-to-end tests
-        run: bun run test:e2e
+        env:
+          KIOSK_CLAIM_PASSWORD: dev-kiosk-claim-2026
+          KIOSK_COOKIE_SECRET: dev-kiosk-cookie-secret-2026-rotate
+          STAFF_COOKIE_SECRET: dev-staff-cookie-secret-2026-rotate
+        run: bun run test:e2e:${{ matrix.project }} -- e2e/browser/${{ matrix.spec }}
+
+  build:
+    name: Build application
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Initialize
+        uses: ./.github/actions/init
 
       - name: Build application
         run: bun run build
+
+  docker:
+    name: Build container
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
 
       - name: Build container
         run: docker build -f Dockerfile .

@@ -47,7 +47,6 @@ export type KitchenOrderEvent =
   | OrderStatusEvent;
 
 type KitchenEventListener = (event: KitchenOrderEvent) => void;
-
 export class KitchenEventDispatcher {
   private readonly listeners = new Set<KitchenEventListener>();
 

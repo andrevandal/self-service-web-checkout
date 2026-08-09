@@ -6,12 +6,14 @@ describe("executeTerminalCommand", () => {
     const result = await executeTerminalCommand("cmd-1", {
       delayMs: 0,
       expectedAmountCents: 650,
+      method: "credit",
       outcome: "approved",
     });
     expect(result).toEqual({
       terminalCommand: "cmd-1",
       reference: expect.stringMatching(/^sim-reference-/),
       amountCents: 650,
+      method: "credit",
       outcome: "approved",
     });
   });
@@ -21,11 +23,13 @@ describe("executeTerminalCommand", () => {
       executeTerminalCommand("cmd-2", {
         delayMs: 0,
         expectedAmountCents: 850,
+        method: "debit",
         outcome: "declined",
       }),
     ).resolves.toMatchObject({
       terminalCommand: "cmd-2",
       amountCents: 850,
+      method: "debit",
       outcome: "declined",
     });
   });
@@ -35,6 +39,7 @@ describe("executeTerminalCommand", () => {
     await executeTerminalCommand("cmd-3", {
       delayMs: 20,
       expectedAmountCents: 100,
+      method: "credit",
       outcome: "approved",
     });
     expect(performance.now() - started).toBeGreaterThanOrEqual(15);
