@@ -39,56 +39,9 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: true
 
-  prepare:
-    name: Prepare E2E artifacts
-    needs: checks
-    runs-on: ubuntu-latest
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
-
-      - name: Initialize
-        uses: ./.github/actions/init
-
-      - name: Install Chromium
-        run: bunx playwright install --with-deps chromium
-
-      - name: Prepare database
-        run: bun scripts/reset-db.ts && bun run db:migrate && bun run db:seed
-
-      - name: Upload seeded database
-        uses: actions/upload-artifact@v4
-        with:
-          name: seeded-db
-          path: .data/
-          include-hidden-files: true
-          if-no-files-found: error
-
-      - name: Build core E2E application
-        run: bun run build:e2e:core
-
-      - name: Upload core E2E build
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-core
-          path: .output-e2e-core/
-          include-hidden-files: true
-          if-no-files-found: error
-
-      - name: Build abandonment E2E application
-        run: bun run build:e2e:abandonment
-
-      - name: Upload abandonment E2E build
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-abandonment
-          path: .output-e2e-abandonment/
-          include-hidden-files: true
-          if-no-files-found: error
-
   e2e:
     name: E2E (${{ matrix.spec }})
-    needs: [checks, prepare]
+    needs: checks
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -118,24 +71,12 @@ jobs:
       - name: Install Chromium
         run: bunx playwright install --with-deps chromium
 
-      - name: Download E2E build
-        uses: actions/download-artifact@v4
-        with:
-          name: build-${{ matrix.project }}
-          path: .output-e2e-${{ matrix.project }}
-
-      - name: Download seeded database
-        uses: actions/download-artifact@v4
-        with:
-          name: seeded-db
-          path: .data/
-
       - name: Run end-to-end tests
         env:
           KIOSK_CLAIM_PASSWORD: dev-kiosk-claim-2026
           KIOSK_COOKIE_SECRET: dev-kiosk-cookie-secret-2026-rotate
           STAFF_COOKIE_SECRET: dev-staff-cookie-secret-2026-rotate
-        run: PW_PROJECT=${{ matrix.project }} bunx playwright test e2e/browser/${{ matrix.spec }}
+        run: bun run test:e2e:${{ matrix.project }} -- e2e/browser/${{ matrix.spec }}
 
   build:
     name: Build application
