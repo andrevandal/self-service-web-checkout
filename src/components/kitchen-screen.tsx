@@ -226,9 +226,11 @@ const OrderCard = ({
       </span>
     </div>
 
-    <div className="flex items-center justify-between gap-4 text-body-s text-muted-foreground">
+    <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-body-s text-muted-foreground">
       <span>{formatCreatedAt(order.createdAt)}</span>
-      <span className="font-semibold text-foreground">{formatCents(order.totalAmountCents)}</span>
+      <span className="font-semibold text-foreground">
+        {formatCents(order.subtotalCents)} subtotal · {formatCents(order.totalAmountCents)} total
+      </span>
     </div>
 
     <ul className="flex flex-col gap-4" aria-label={`Items in order ${order.orderNumber}`}>
