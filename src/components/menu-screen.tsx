@@ -12,7 +12,6 @@ import { useAbandonment, type PaymentContext } from "#/lib/use-abandonment";
 
 export type MenuScreenProps = {
   kioskId: string;
-  kioskName: string;
 };
 
 const formatCents = (cents: number): string =>
@@ -32,7 +31,7 @@ const toCartLineInput = (product: MenuProduct): CartLineInput => ({
   addons: [],
 });
 
-export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
+export const MenuScreen = ({ kioskId }: MenuScreenProps) => {
   const menuQuery = useQuery({ queryKey: ["menu"], queryFn: () => getMenu() });
   const [cart, dispatchCart] = useReducer(cartReducer, []);
   const [checkoutCart, setCheckoutCart] = useState<CartState | null>(null);
@@ -102,7 +101,7 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
     onClearCart: clearCartAndCheckout,
   });
   const startCheckout = () => {
-    setPaymentContext({ phase: "creating_order", orderId: null, attemptId: null });
+    setPaymentContext({ phase: "choosing_method", orderId: null, attemptId: null });
     setCheckoutCart(cart);
   };
   const handleInteraction = () => {
@@ -111,12 +110,11 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
   const subtotal = subtotalCents(cart);
   const drawerProduct = selectedProduct;
   const header = (
-    <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-center px-5 py-4">
       <div className="flex items-center gap-3">
         <Store aria-hidden className="size-6" strokeWidth={2} />
         <span className="text-heading-s font-semibold">Warm & Melted</span>
       </div>
-      <span className="text-body-s text-muted-foreground">{kioskName}</span>
     </div>
   );
 
@@ -321,14 +319,11 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
           </div>
         }
       >
-        <div className="mx-auto flex w-full max-w-6xl flex-col gap-8 px-5 py-8">
-          <div className="flex flex-col gap-5">
-            <div className="flex flex-col gap-2">
-              <p className="text-body-s font-semibold text-primary">Order at your own pace</p>
-              <h1 className="text-display-m font-extrabold leading-tight">Menu</h1>
-              <p className="max-w-xl text-body-l text-muted-foreground">
-                Choose something fresh, then make it yours.
-              </p>
+        <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-6">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-baseline gap-3">
+              <h1 className="text-heading-l font-extrabold leading-tight">Menu</h1>
+              <p className="text-body-s text-muted-foreground">Tap an item to customize and add.</p>
             </div>
 
             <label className="relative block max-w-2xl">
@@ -351,10 +346,10 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
             {!normalizedSearch && categories.length > 0 && (
               <Carousel
                 aria-label="Menu categories"
-                className="w-full"
+                className="-mx-5 w-[calc(100%+2.5rem)]"
                 opts={{ align: "start", dragFree: true }}
               >
-                <CarouselContent className="-ml-3">
+                <CarouselContent className="-ml-3 pl-5 pr-5">
                   {categories.map((category) => (
                     <CarouselItem className="basis-auto pl-3" key={category.id}>
                       <button
