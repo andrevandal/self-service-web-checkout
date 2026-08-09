@@ -75,8 +75,8 @@ const fixtureOrders: KitchenOrder[] = [
     id: "order-paid-101",
     orderNumber: "A-101",
     status: "paid",
-    subtotalCents: 1025,
-    totalAmountCents: 1025,
+    subtotalCents: 950,
+    totalAmountCents: 950,
     createdAt: "2026-08-08T12:00:00.000Z",
     paidAt: "2026-08-08T12:00:01.000Z",
     items: [
@@ -179,8 +179,9 @@ export const advanceOrder = createServerFn({ method: "POST" })
       throw new KitchenError("invalid_transition");
     }
 
-    order.status = data.toStatus === "preparing" ? "preparing" : "preparing";
-    if (data.toStatus === "done") {
+    if (data.toStatus === "preparing") {
+      order.status = "preparing";
+    } else {
       fixtureOrders.splice(fixtureOrders.indexOf(order), 1);
     }
 
@@ -197,8 +198,8 @@ export const resetKitchenFixture = () => {
     id: "order-paid-101",
     orderNumber: "A-101",
     status: "paid",
-    subtotalCents: 1025,
-    totalAmountCents: 1025,
+    subtotalCents: 950,
+    totalAmountCents: 950,
     createdAt: "2026-08-08T12:00:00.000Z",
     paidAt: "2026-08-08T12:00:01.000Z",
     items: [
