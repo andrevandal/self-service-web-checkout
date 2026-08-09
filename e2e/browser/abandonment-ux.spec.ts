@@ -39,12 +39,13 @@ test("captures cart abandonment and returns to an empty menu", async ({ page }) 
   const parseCapture = (body: string) => {
     try {
       type CaptureEvent = { event?: string; properties?: Record<string, unknown> };
-      const parsed = body.startsWith("{")
-        ? (JSON.parse(body) as CaptureEvent & { batch?: CaptureEvent[] })
+      type CapturePayload = CaptureEvent & { batch?: CaptureEvent[] };
+      const parsed: CapturePayload | null = body.startsWith("{")
+        ? (JSON.parse(body) as CapturePayload)
         : (() => {
             const encoded = new URLSearchParams(body).get("data");
             return encoded
-              ? (JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as CaptureEvent)
+              ? (JSON.parse(Buffer.from(encoded, "base64").toString("utf8")) as CapturePayload)
               : null;
           })();
       return parsed?.batch?.[0] ?? parsed;

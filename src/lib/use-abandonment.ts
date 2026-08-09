@@ -74,6 +74,7 @@ export const useAbandonment = ({
     configRef.current = readConfig();
   }
   const config = configRef.current;
+  const paymentSession = payment !== null;
   const active = cart.length > 0 && payment?.phase !== "confirmed";
   const [state, setState] = useState<IdleTimerState>(() =>
     initialIdleTimerState(active, Date.now(), config),
@@ -128,7 +129,7 @@ export const useAbandonment = ({
   useEffect(() => {
     reset();
     return clearTimers;
-  }, [active, clearTimers, payment !== null, reset]);
+  }, [active, clearTimers, paymentSession, reset]);
 
   useEffect(() => {
     if (state.phase !== "warning") {
@@ -165,14 +166,13 @@ export const useAbandonment = ({
           }
         } catch {
           // Release the kiosk even if the local seam rejects; the backend owns expiry.
-        } finally {
-          if (!mountedRef.current) {
-            return;
-          }
-          onCancelPaymentRef.current();
-          onClearCartRef.current();
-          setExpiryPending(false);
         }
+        if (!mountedRef.current) {
+          return;
+        }
+        onCancelPaymentRef.current();
+        onClearCartRef.current();
+        setExpiryPending(false);
       })();
       return;
     }
@@ -190,9 +190,10 @@ export const useAbandonment = ({
           abandoned_at: new Date(expiredAt).toISOString(),
         });
       }
-    } finally {
-      onClearCartRef.current();
+    } catch {
+      // Analytics failure must not strand the cart.
     }
+    onClearCartRef.current();
   }, [posthog, state]);
 
   useEffect(() => {
