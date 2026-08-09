@@ -8,7 +8,10 @@ export const enterSetupPassword = async (page: Page) => {
 export const claimFixtureKiosk = async (page: Page) => {
   await page.goto("/");
   await enterSetupPassword(page);
-  await page.getByRole("button", { name: /Claim Front counter/ }).click();
+  await Promise.all([
+    page.waitForNavigation({ waitUntil: "domcontentloaded" }),
+    page.getByRole("button", { name: /Claim Front counter/ }).click(),
+  ]);
   await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).waitFor({ state: "visible" });
   await page.waitForTimeout(1_000);
 };
