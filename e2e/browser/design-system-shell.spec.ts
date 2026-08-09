@@ -7,7 +7,7 @@ test("renders the fixed kiosk shell with its design tokens", async ({ page }) =>
   await expect(page.getByTestId("kiosk-header")).toBeVisible();
   await expect(page.getByRole("banner")).toContainText("Warm & Melted");
   await expect(page.getByTestId("kiosk-bottom-bar")).toBeVisible();
-  await expect(page.getByRole("button", { name: "View cart" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Show order details" })).toBeVisible();
 
   const shell = page.getByTestId("kiosk-shell");
   await expect(shell).toHaveCSS("background-color", "rgb(247, 245, 240)");

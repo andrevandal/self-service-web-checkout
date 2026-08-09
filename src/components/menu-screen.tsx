@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from "react";
-import { RefreshCw, Search, ShoppingBag, Store, Trash2, X } from "lucide-react";
+import { RefreshCw, Search, ShoppingBag, Store, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { AbandonmentDialog } from "#/components/abandonment-dialog";
 import { CheckoutScreen } from "#/components/checkout-screen";
@@ -117,6 +117,15 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
   };
   const subtotal = subtotalCents(cart);
   const drawerProduct = selectedProduct;
+  const header = (
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4">
+      <div className="flex items-center gap-3">
+        <Store aria-hidden className="size-6" strokeWidth={2} />
+        <span className="text-heading-s font-semibold">Warm & Melted</span>
+      </div>
+      <span className="text-body-s text-muted-foreground">{kioskName}</span>
+    </div>
+  );
 
   if (checkoutCart) {
     return (
@@ -136,18 +145,102 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
     );
   }
 
+  if (cartOpen) {
+    return (
+      <div onPointerDown={handleInteraction}>
+        <KioskShell
+          bottomBar={
+            <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
+              <div aria-live="polite">
+                <p className="text-body-s text-muted-foreground">Your order</p>
+                <p className="text-heading-m font-semibold">
+                  {itemCountLabel(cart.length)} · {formatCents(subtotal)}
+                </p>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  aria-label="Hide order details"
+                  aria-pressed="true"
+                  className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-pill bg-primary px-4 py-3 text-primary-foreground transition-colors duration-150 active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  onClick={() => setCartOpen(false)}
+                  type="button"
+                >
+                  <ShoppingBag aria-hidden size={20} strokeWidth={2} />
+                </button>
+                <button
+                  className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                  disabled={cart.length === 0}
+                  onClick={startCheckout}
+                  type="button"
+                >
+                  Pay
+                </button>
+              </div>
+            </div>
+          }
+          header={header}
+        >
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 px-5 py-8">
+            <div>
+              <p className="text-body-s font-semibold text-primary">Your order</p>
+              <h1 className="text-display-m font-extrabold leading-tight">Order details</h1>
+            </div>
+            {cart.length === 0 ? (
+              <p className="rounded-md bg-card p-6 text-body-l text-muted-foreground">
+                Your cart is empty.
+              </p>
+            ) : (
+              <div
+                aria-label="Cart details"
+                className="flex flex-col divide-y divide-border rounded-md bg-card p-5 shadow-md"
+                role="region"
+              >
+                {cart.map((line) => (
+                  <div
+                    className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0"
+                    key={line.id}
+                  >
+                    <div>
+                      <p className="font-semibold">{line.productName}</p>
+                      {(line.variants.length > 0 || line.addons.length > 0) && (
+                        <p className="mt-1 text-body-s text-muted-foreground">
+                          {[
+                            ...line.variants.map((variant) => variant.optionName),
+                            ...line.addons.map((addon) => addon.addonName),
+                          ].join(", ")}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 items-center gap-3">
+                      <span className="font-semibold">{formatCents(line.unitPriceCents)}</span>
+                      <button
+                        aria-label={`Remove ${line.productName}`}
+                        className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-pill border border-border text-destructive"
+                        onClick={() => dispatchCart({ type: "remove", lineId: line.id })}
+                        type="button"
+                      >
+                        <Trash2 aria-hidden size={18} strokeWidth={2} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </KioskShell>
+        <AbandonmentDialog
+          onKeepOrdering={abandonment.reset}
+          open={abandonment.warningOpen}
+          secondsRemaining={abandonment.secondsRemaining}
+        />
+      </div>
+    );
+  }
+
   return (
     <div onPointerDown={handleInteraction}>
       <KioskShell
-        header={
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-5 py-4">
-            <div className="flex items-center gap-3">
-              <Store aria-hidden className="size-6" strokeWidth={2} />
-              <span className="text-heading-s font-semibold">Warm & Melted</span>
-            </div>
-            <span className="text-body-s text-muted-foreground">{kioskName}</span>
-          </div>
-        }
+        header={header}
         bottomBar={
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4">
             <div aria-live="polite">
@@ -158,13 +251,14 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
             </div>
             <div className="flex items-center gap-3">
               <button
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-pill border border-border px-5 py-3 font-semibold transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+                aria-label="Show order details"
+                aria-pressed="false"
+                className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-pill border border-border px-4 py-3 transition-colors duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
                 disabled={cart.length === 0}
-                onClick={() => setCartOpen((open) => !open)}
+                onClick={() => setCartOpen(true)}
                 type="button"
               >
                 <ShoppingBag aria-hidden size={20} strokeWidth={2} />
-                {cartOpen ? "Hide cart" : "View cart"}
               </button>
               <button
                 className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
@@ -322,60 +416,6 @@ export const MenuScreen = ({ kioskId, kioskName }: MenuScreenProps) => {
                       </span>
                     </div>
                   </button>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {cartOpen && cart.length > 0 && (
-            <section
-              aria-label="Cart details"
-              className="rounded-md bg-card p-5 shadow-md"
-              role="region"
-            >
-              <div className="mb-4 flex items-center justify-between gap-4">
-                <div>
-                  <p className="text-body-s text-muted-foreground">Your order</p>
-                  <h2 className="text-heading-m font-semibold">Cart details</h2>
-                </div>
-                <button
-                  aria-label="Close cart details"
-                  className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-pill border border-border"
-                  onClick={() => setCartOpen(false)}
-                  type="button"
-                >
-                  <X aria-hidden size={20} strokeWidth={2} />
-                </button>
-              </div>
-              <div className="flex flex-col divide-y divide-border">
-                {cart.map((line) => (
-                  <div
-                    className="flex items-start justify-between gap-4 py-4 first:pt-0 last:pb-0"
-                    key={line.id}
-                  >
-                    <div>
-                      <p className="font-semibold">{line.productName}</p>
-                      {(line.variants.length > 0 || line.addons.length > 0) && (
-                        <p className="mt-1 text-body-s text-muted-foreground">
-                          {[
-                            ...line.variants.map((variant) => variant.optionName),
-                            ...line.addons.map((addon) => addon.addonName),
-                          ].join(", ")}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 items-center gap-3">
-                      <span className="font-semibold">{formatCents(line.unitPriceCents)}</span>
-                      <button
-                        aria-label={`Remove ${line.productName}`}
-                        className="inline-flex min-h-12 min-w-12 items-center justify-center rounded-pill border border-border text-destructive"
-                        onClick={() => dispatchCart({ type: "remove", lineId: line.id })}
-                        type="button"
-                      >
-                        <Trash2 aria-hidden size={18} strokeWidth={2} />
-                      </button>
-                    </div>
-                  </div>
                 ))}
               </div>
             </section>

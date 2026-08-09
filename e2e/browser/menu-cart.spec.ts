@@ -21,9 +21,13 @@ test("browses, customizes, and removes menu items", async ({ page }) => {
   await expect(page.getByRole("contentinfo").getByText("$16.00")).toBeVisible();
   await expect(page.getByText("2 items")).toBeVisible();
 
-  await page.getByRole("button", { name: "View cart" }).click();
+  await page.getByRole("button", { name: "Show order details" }).click();
+  await expect(page.getByRole("heading", { name: "Order details" })).toBeVisible();
   await expect(page.getByRole("region", { name: "Cart details" })).toBeVisible();
   await page.getByRole("button", { name: "Remove Classic cheese toastie" }).click();
   await expect(page.getByRole("contentinfo").getByText("$9.50")).toBeVisible();
   await expect(page.getByText("1 item")).toBeVisible();
+
+  await page.getByRole("button", { name: "Hide order details" }).click();
+  await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible();
 });
