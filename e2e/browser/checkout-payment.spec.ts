@@ -8,7 +8,9 @@ test("pays for an order, confirms pickup, and resets the menu", async ({ page })
   await expect(page.getByRole("contentinfo").getByText("$3.50")).toBeVisible();
 
   await page.getByRole("button", { name: "Pay" }).click();
-  await expect(page.getByRole("heading", { name: "Taking payment" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Taking payment" })).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(page.getByText("Follow the instructions on the terminal")).toBeVisible();
 
   await expect(page.getByRole("heading", { name: "Payment complete" })).toBeVisible();

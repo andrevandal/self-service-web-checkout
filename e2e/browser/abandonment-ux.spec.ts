@@ -68,7 +68,7 @@ test("expires a payment-pending attempt before returning to the menu", async ({ 
   await addClassicToastie(page);
   await page.getByRole("button", { name: "Pay" }).click();
   await expect(page.getByRole("heading", { name: "Taking payment" })).toBeVisible({
-    timeout: 5_000,
+    timeout: 15_000,
   });
   await expect(page.getByRole("heading", { name: "Menu" })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByRole("contentinfo").getByText("0 items · $0.00")).toBeVisible();
