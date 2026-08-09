@@ -8,6 +8,11 @@ services:
     environment:
       PORT: "3000"
       DATABASE_URL: http://db:8080
+      KIOSK_CLAIM_PASSWORD: "${KIOSK_CLAIM_PASSWORD:?KIOSK_CLAIM_PASSWORD must be set}"
+      KIOSK_COOKIE_SECRET: "${KIOSK_COOKIE_SECRET:?KIOSK_COOKIE_SECRET must be set}"
+      STAFF_COOKIE_SECRET: "${STAFF_COOKIE_SECRET:?STAFF_COOKIE_SECRET must be set}"
+      KIOSK_COOKIE_SECURE: "${KIOSK_COOKIE_SECURE:-false}"
+      STAFF_COOKIE_SECURE: "${STAFF_COOKIE_SECURE:-false}"
     depends_on:
       db:
         condition: service_healthy

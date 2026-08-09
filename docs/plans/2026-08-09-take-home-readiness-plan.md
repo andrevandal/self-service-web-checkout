@@ -247,6 +247,40 @@ git add README.md docs/deployment.md
 git commit -m "docs(deploy): clarify container database boundary"
 ```
 
+### Task 2A: Pass existing runtime configuration through Compose
+
+**Files:**
+- Modify: `docker-compose.yml`
+- Modify: `docker-compose.sqld.yml`
+- Modify: `docs/deployment.md`
+
+**Why this is required:** Whole-branch review found both Compose examples start `app` with only `PORT` and `DATABASE_URL`. Since `KIOSK_CLAIM_PASSWORD` and cookie secrets are required at runtime, the documented Compose commands otherwise start an app that cannot serve kiosk or staff claim flows.
+
+**Interfaces:**
+- Consumes: existing host or `.env` values for `KIOSK_CLAIM_PASSWORD`, `KIOSK_COOKIE_SECRET`, `STAFF_COOKIE_SECRET`, `KIOSK_COOKIE_SECURE`, and `STAFF_COOKIE_SECURE`.
+- Produces: the same existing values in the `app` container environment for both topologies.
+
+- [ ] **Step 1: Add environment interpolation to both app services**
+
+In both Compose files, pass the five existing runtime variables from Compose interpolation into `app.environment`. Use required-variable interpolation for the three secret/password values so `docker compose up` fails before startup when they are absent. Pass cookie-security flags with their existing local default of `false`.
+
+Do not add a Compose `secrets` object, files containing secrets, an entrypoint, migration orchestration, or database provisioning.
+
+- [ ] **Step 2: Make the deployment guide executable**
+
+Amend `docs/deployment.md` to state that the Compose commands read the five application values from the invoking environment or `.env`; deployment must supply unique values, while `.env.example` is only a local-development starting point. Retain the database initialization prerequisite and migration boundary.
+
+- [ ] **Step 3: Validate resolved configuration and commit**
+
+With development-only values exported, run `docker compose config` and `docker compose -f docker-compose.sqld.yml config`; confirm each rendered `app` environment contains all five values. Run `bun run lint`, `bun run format`, and `bun run typecheck`.
+
+Commit this atomic repair:
+
+```bash
+git add docker-compose.yml docker-compose.sqld.yml docs/deployment.md docs/plans/2026-08-09-take-home-readiness-plan.md
+git commit -m "fix(deploy): pass claim configuration to compose"
+```
+
 ### Task 3: Make architecture choices and go-live work legible to evaluators
 
 **Files:**

@@ -33,7 +33,14 @@ Use only the command matching the selected topology; the examples are
 alternatives, not a stack to run simultaneously.
 
 The compose examples require an initialized database and runtime app secrets;
-they are topology references, not a zero-config first run.
+they are topology references, not a zero-config first run. Compose reads
+`KIOSK_CLAIM_PASSWORD`, `KIOSK_COOKIE_SECRET`, `STAFF_COOKIE_SECRET`,
+`KIOSK_COOKIE_SECURE`, and `STAFF_COOKIE_SECURE` from the invoking environment
+or the project `.env` file and injects them into the `app` service. The three
+password/secret values are required; cookie-security flags default to `false`
+when omitted for local development. Deployments must supply unique password and
+cookie-secret values; `.env.example` is only a local-development starting point
+and must not be used as a deployment secret source.
 
 ## Migration boundary
 
