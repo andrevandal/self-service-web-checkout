@@ -83,6 +83,33 @@ database. This command demonstrates runtime configuration only; it does not
 provision, migrate, or seed the database. See the [deployment
 guide](docs/deployment.md) for the database and migration boundary.
 
+## Architecture and production boundaries
+
+TanStack server functions are the typed client/API boundary. Terminal integration
+is deliberately simulated: the server creates payment attempts and correlates
+and reconciles simulated terminal receipts; it does not perform real capture,
+provide PCI compliance, or integrate a payment provider.
+
+One restaurant uses one app container. Kiosk and staff sessions share that
+process and its in-process kitchen event dispatcher. Additional kiosks connect
+to the same restaurant container; shared pub/sub is needed only when one
+restaurant runs multiple app instances. The kitchen workflow, PostHog analytics,
+and Docker packaging extend the required menu/order/payment exercise, but are
+not prerequisites for that core flow.
+
+### Before go-live
+
+These are deployment responsibilities, not supplied take-home features:
+
+- Provide a durable database and a pre-release migration procedure.
+- Define catalog ownership and the process for publishing catalog changes.
+- Supply unique, rotated secrets through the deployment environment.
+- Enforce secure cookies, TLS, and a correctly configured trusted proxy.
+- Provide persistent storage, backups, and exercised restore procedures.
+- Operate health monitoring, alerts, and operational logs.
+- If payments leave the simulation, integrate a real payment provider and
+  complete the applicable PCI and compliance work.
+- Add shared transport only for a multi-instance deployment of one restaurant.
 
 See [docs/](docs/) for deployment and contributor
 guidance.
