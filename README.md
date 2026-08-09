@@ -1,7 +1,7 @@
 # Self-service web checkout
 
 [![Checks](https://github.com/andrevandal/self-service-web-checkout/actions/workflows/checks.yml/badge.svg)](https://github.com/andrevandal/self-service-web-checkout/actions/workflows/checks.yml)
-[![Codecov](https://codecov.io/gh/andrevandal/self-service-web-checkout/graph/badge.svg)](https://app.codecov.io/gh/andrevandal/self-service-web-checkout)
+[![Codecov](https://codecov.io/gh/andrevandal/self-service-web-checkout/graph/badge.svg?token=XA67SVXCDW)](https://codecov.io/gh/andrevandal/self-service-web-checkout)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE.md)
 [![Release](https://img.shields.io/github/v/release/andrevandal/self-service-web-checkout)](https://github.com/andrevandal/self-service-web-checkout/releases)
 
