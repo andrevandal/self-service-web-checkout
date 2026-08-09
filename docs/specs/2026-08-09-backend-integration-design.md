@@ -43,6 +43,19 @@ The investigation recorded in `GOAL.md` was performed by direct reads of every r
    `POSTHOG_KEY` and `POSTHOG_HOST` remain optional. The values are intentionally non-production and must never be committed.
 7. Run the focused backend tests and browser suite after each seam migration, then run the full lint, format, typecheck, unit test, and build commands. Finally migrate and seed the real database, start the built app, and drive the live customer and staff flow.
 
+## Discovered runtime drift and decisions
+
+The first production build exposed two integration-specific client/server boundary issues and one generated-bundle issue not present in the initial seam comparison:
+
+- `PostHogProvider` was rendered from the root SSR tree while statically importing `@posthog/react` and `posthog-js`. It now has an SSR-safe wrapper in `provider.tsx`; the actual provider and SDK initialization live in `provider.client.tsx`, loaded only after hydration through `createClientOnlyFn`.
+- `use-abandonment.ts` also statically imported `usePostHog` from `@posthog/react`, so the provider boundary alone could not keep the browser SDK out of SSR. Cart-abandonment capture now loads `analytics.client.ts` only when the client-side effect fires; cart expiry and clearing remain independent of analytics success.
+- Rolldown's production SSR vendor splitting produced a circular React/CommonJS helper chunk (`__commonJSMin is not a function`) once the integrated server graph was built. Nitro's supported `inlineDynamicImports` option is enabled as `nitro({ inlineDynamicImports: true })` in `vite.config.ts`, producing one server bundle and removing the cycle. A clean build and built-server `GET /` returned HTTP 200 after this change.
+- The repeatable seed script also had undocumented FK drift: deleting catalog
+  rows after a real order existed failed on `order_items.product_id`. It now
+  clears order-item addons/variants, payment attempts, order items, orders,
+  and kiosk counters before catalog rows. Reseeding after a real paid order
+  completed successfully without resetting the database file.
+
 ## Runtime flow and error handling
 
 Customer session lookup is request-scoped: the signed cookie is verified with the server-only kiosk secret, then the database is authoritative for the kiosk row. Invalid, missing, or stale-row cookies yield `null`, allowing the claim UI to render. Claim, order, payment, and staff errors continue to use the backend's existing typed codes; no UI assertion or error suppression is introduced.

@@ -1,5 +1,9 @@
-import { usePostHog } from "@posthog/react";
+import { createClientOnlyFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useRef, useState } from "react";
+
+const loadPostHogAnalytics = createClientOnlyFn(
+  () => import("#/integrations/posthog/analytics.client"),
+);
 import {
   initialIdleTimerState,
   transitionIdleTimer,
@@ -7,7 +11,7 @@ import {
   type IdleTimerState,
 } from "#/lib/idle-timer";
 import { subtotalCents, type CartState } from "#/lib/cart";
-import { expirePaymentAttempt } from "#/lib/payment";
+import { expirePaymentAttempt } from "#/lib/payment.functions";
 
 export type PaymentContext = {
   phase:
@@ -68,7 +72,6 @@ export const useAbandonment = ({
   onClearCart,
   onCancelPayment,
 }: UseAbandonmentInput) => {
-  const posthog = usePostHog();
   const configRef = useRef<IdleTimerConfig | null>(null);
   if (configRef.current === null) {
     configRef.current = readConfig();
@@ -178,23 +181,25 @@ export const useAbandonment = ({
     }
 
     const abandonedCart = snapshotRef.current;
-    try {
-      if (abandonedCart.length > 0) {
-        posthog.capture("cart_abandoned", {
-          kiosk_id: kioskIdRef.current,
-          cart_lines: abandonedCart,
-          item_count: abandonedCart.length,
-          subtotal_cents: subtotalCents(abandonedCart),
-          currency: "USD",
-          idle_duration_ms: Math.max(0, expiredAt - state.startedAt),
-          abandoned_at: new Date(expiredAt).toISOString(),
+    if (abandonedCart.length > 0) {
+      void loadPostHogAnalytics()
+        .then(({ captureCartAbandoned }) =>
+          captureCartAbandoned({
+            kiosk_id: kioskIdRef.current,
+            cart_lines: abandonedCart,
+            item_count: abandonedCart.length,
+            subtotal_cents: subtotalCents(abandonedCart),
+            currency: "USD",
+            idle_duration_ms: Math.max(0, expiredAt - state.startedAt),
+            abandoned_at: new Date(expiredAt).toISOString(),
+          }),
+        )
+        .catch(() => {
+          // Analytics failure must not strand the cart.
         });
-      }
-    } catch {
-      // Analytics failure must not strand the cart.
     }
     onClearCartRef.current();
-  }, [posthog, state]);
+  }, [state]);
 
   useEffect(() => {
     mountedRef.current = true;

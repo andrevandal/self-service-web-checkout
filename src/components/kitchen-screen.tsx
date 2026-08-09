@@ -4,11 +4,18 @@ import { useEffect, useState, type FormEvent } from "react";
 import {
   advanceOrder,
   claimStaffSession,
-  type KitchenErrorCode,
-  type KitchenEvent,
-  type KitchenOrder,
   listActiveOrders,
-} from "#/lib/kitchen";
+  type KitchenOrder,
+  type KitchenOrderEvent,
+} from "#/lib/kitchen.functions";
+
+type KitchenErrorCode =
+  | "configuration"
+  | "invalid_password"
+  | "invalid_input"
+  | "staff_identity"
+  | "order_not_found"
+  | "invalid_transition";
 
 const KITCHEN_QUERY_KEY = ["kitchen", "orders"] as const;
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
@@ -57,7 +64,7 @@ const errorCopy = (error: unknown, fallback: string): string => {
 
 export const applyKitchenEvent = (
   orders: KitchenOrder[] | undefined,
-  event: KitchenEvent,
+  event: KitchenOrderEvent,
 ): KitchenOrder[] => {
   const current = orders ?? [];
   if (event.type === "order.paid") {
@@ -76,7 +83,7 @@ export const applyKitchenEvent = (
 
 declare global {
   interface Window {
-    __kitchenInjectEvent?: (event: KitchenEvent) => void;
+    __kitchenInjectEvent?: (event: KitchenOrderEvent) => void;
   }
 }
 
@@ -337,25 +344,24 @@ export const KitchenScreen = () => {
       }));
     },
   });
-
   useEffect(() => {
     if (!staffReady) {
       return;
     }
 
     const source = new EventSource("/api/kitchen/events");
-    const apply = (event: KitchenEvent) => {
+    const apply = (event: KitchenOrderEvent) => {
       queryClient.setQueryData<KitchenOrder[]>(KITCHEN_QUERY_KEY, (orders) =>
         applyKitchenEvent(orders, event),
       );
     };
     const onOpen = () => setLive(true);
     const onError = () => setLive(false);
-    const eventTypes: KitchenEvent["type"][] = ["order.paid", "order.preparing", "order.done"];
+    const eventTypes: KitchenOrderEvent["type"][] = ["order.paid", "order.preparing", "order.done"];
     const handlers = eventTypes.map((eventType) => {
       const handler = (message: Event) => {
         try {
-          const event = JSON.parse((message as MessageEvent<string>).data) as KitchenEvent;
+          const event = JSON.parse((message as MessageEvent<string>).data) as KitchenOrderEvent;
           if (event.type === eventType) {
             apply(event);
           }

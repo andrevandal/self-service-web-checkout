@@ -2,8 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, KeyRound, Store } from "lucide-react";
 import { KioskShell } from "#/components/kiosk-shell";
-import { claimKiosk, listKiosks, normalizePrefix, type KioskClaimInput } from "#/lib/kiosk-session";
+import { claimKiosk, listKiosks, type ClaimKioskInput } from "#/lib/kiosk.functions";
 
+const normalizePrefix = (value: string): string | null => {
+  const prefix = value.trim().toUpperCase();
+  return /^[A-Z0-9]{1,5}$/.test(prefix) ? prefix : null;
+};
 const claimErrorCopy: Record<string, string> = {
   invalid_password: "That setup password is not correct.",
   configuration: "Kiosk setup is temporarily unavailable. Try again.",
@@ -41,7 +45,7 @@ export const KioskClaimScreen = () => {
   });
 
   const claimMutation = useMutation({
-    mutationFn: (data: KioskClaimInput) => claimKiosk({ data }),
+    mutationFn: (data: ClaimKioskInput) => claimKiosk({ data }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["kiosk-session"] });
       window.location.reload();

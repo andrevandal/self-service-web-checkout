@@ -112,9 +112,9 @@ const {
   advanceOrderHandler,
   claimStaffSessionHandler,
   listActiveOrdersHandler,
-} = await import("./kitchen.functions");
+} = await import("./kitchen.functions.server");
 const { reconcilePaymentAttemptHandler, startPaymentAttemptHandler } =
-  await import("./payment.functions");
+  await import("./payment.functions.server");
 const { KitchenEventDispatcher, kitchenEventDispatcher } = await import("./kitchen-events.server");
 
 const setStaffCookie = () => {

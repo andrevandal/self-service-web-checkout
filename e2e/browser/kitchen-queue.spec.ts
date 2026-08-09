@@ -1,55 +1,33 @@
 import { expect, test } from "@playwright/test";
+import { claimFixtureKiosk } from "./kiosk-claim-helpers";
 import { enterStaffPassword } from "./kitchen-queue-helpers";
 
-test("staff can work the active queue and receive a paid SSE order", async ({ page }) => {
-  await page.goto("/kitchen");
+test("staff can receive a paid SSE order and advance it through the real queue", async ({
+  page,
+}) => {
+  const kitchenPage = await page.context().newPage();
+  await kitchenPage.goto("/kitchen");
+  await expect(kitchenPage.getByRole("heading", { name: "Kitchen queue" })).toBeVisible();
+  await enterStaffPassword(kitchenPage);
+  await expect(kitchenPage.getByTestId("kitchen-live-status")).toHaveText("Live updates on");
+  await page.waitForTimeout(1_000);
 
-  await expect(page.getByRole("heading", { name: "Kitchen queue" })).toBeVisible();
-  await enterStaffPassword(page);
+  await claimFixtureKiosk(page);
+  await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).click();
+  await page.getByRole("button", { name: "Pay" }).click();
+  await expect(page.getByRole("heading", { name: "Payment complete" })).toBeVisible();
 
-  const fixtureCard = page.getByTestId("kitchen-order-A-101");
-  await expect(fixtureCard).toBeVisible();
-  await expect(fixtureCard.getByText("A-101")).toBeVisible();
-  await expect(fixtureCard.getByText("Melted mushroom toastie")).toBeVisible();
-  await expect(fixtureCard.getByText("Sourdough")).toBeVisible();
-  await expect(fixtureCard.getByText("Extra cheese")).toBeVisible();
-  await expect(fixtureCard.getByText("Paid")).toBeVisible();
+  const orderNumber = await page.getByText(/^[A-Z]-\d+$/).textContent();
+  expect(orderNumber).toMatch(/^[A-Z]-\d+$/);
+  const liveCard = kitchenPage.getByTestId(`kitchen-order-${orderNumber}`);
+  await expect(liveCard).toBeVisible({ timeout: 30_000 });
+  await expect(liveCard.getByText("Espresso")).toBeVisible();
+  await expect(liveCard.getByText("Paid")).toBeVisible();
 
-  await fixtureCard.getByRole("button", { name: "Start preparing" }).click();
-  await expect(fixtureCard.getByText("Preparing")).toBeVisible();
-  await expect(fixtureCard.getByRole("button", { name: "Done" })).toBeVisible();
+  await liveCard.getByRole("button", { name: "Start preparing" }).click();
+  await expect(liveCard.getByText("Preparing")).toBeVisible();
+  await liveCard.getByRole("button", { name: "Done" }).click();
+  await expect(liveCard).toBeHidden();
 
-  await fixtureCard.getByRole("button", { name: "Done" }).click();
-  await expect(fixtureCard).toBeHidden();
-
-  await page.evaluate(() => {
-    window.__kitchenInjectEvent?.({
-      type: "order.paid",
-      order: {
-        id: "order-sse-202",
-        orderNumber: "A-202",
-        status: "paid",
-        subtotalCents: 650,
-        totalAmountCents: 650,
-        createdAt: "2026-08-08T12:02:00.000Z",
-        paidAt: "2026-08-08T12:02:01.000Z",
-        items: [
-          {
-            id: "item-sse-202",
-            productId: "product-classic-cheese-toastie",
-            productName: "Classic cheese toastie",
-            quantity: 1,
-            unitPriceCents: 650,
-            variants: [],
-            addons: [],
-          },
-        ],
-      },
-    });
-  });
-
-  const liveCard = page.getByTestId("kitchen-order-A-202");
-  await expect(liveCard).toBeVisible();
-  await expect(liveCard.getByText("Classic cheese toastie")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Refresh" })).toBeVisible();
+  await kitchenPage.close();
 });

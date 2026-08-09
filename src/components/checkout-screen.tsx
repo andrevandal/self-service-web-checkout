@@ -2,17 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import type { CartState } from "#/lib/cart";
+import { cartToCreateOrderInput } from "#/lib/checkout";
+import type { CreateOrderInput, CreateOrderResult } from "#/lib/order.functions";
+import { createOrder } from "#/lib/order.functions";
 import {
-  cartToCreateOrderInput,
-  type CreateOrderInput,
-  type CreateOrderResult,
-} from "#/lib/checkout";
-import {
-  createOrder,
   reconcilePaymentAttempt,
   startPaymentAttempt,
   type PaymentReceipt,
-} from "#/lib/payment";
+} from "#/lib/payment.functions";
 import { printReceipt } from "#/lib/printer";
 import { executeTerminalCommand } from "#/lib/terminal";
 

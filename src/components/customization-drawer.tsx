@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
 import type { CartAddonSelection, CartLineInput, CartVariantSelection } from "#/lib/cart";
-import type { MenuProduct } from "#/lib/menu";
+import type { MenuProduct } from "#/lib/catalog.functions";
 
 export type CustomizationDrawerProps = {
   product: MenuProduct;

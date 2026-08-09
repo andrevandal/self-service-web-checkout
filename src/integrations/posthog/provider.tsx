@@ -1,24 +1,29 @@
-import { PostHogProvider as BasePostHogProvider } from "@posthog/react";
-import posthog from "posthog-js";
-import type { ReactNode } from "react";
-import { env } from "virtual:env/client";
+import { createClientOnlyFn } from "@tanstack/react-start";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 
-if (typeof window !== "undefined" && env.VITE_POSTHOG_KEY) {
-  posthog.init(env.VITE_POSTHOG_KEY, {
-    api_host: env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
-    person_profiles: "identified_only",
-    capture_pageview: false,
-    opt_out_useragent_filter: true,
-    request_batching: false,
-  });
-}
+const loadClientPostHogProvider = createClientOnlyFn(() => import("./provider.client"));
+const ClientPostHogProvider = lazy(() => loadClientPostHogProvider());
 
 type PostHogProviderProps = {
   children: ReactNode;
 };
 
-const PostHogProvider = ({ children }: PostHogProviderProps) => (
-  <BasePostHogProvider client={posthog}>{children}</BasePostHogProvider>
-);
+const PostHogProvider = ({ children }: PostHogProviderProps) => {
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
+
+  if (!hydrated) {
+    return children;
+  }
+
+  return (
+    <Suspense fallback={children}>
+      <ClientPostHogProvider>{children}</ClientPostHogProvider>
+    </Suspense>
+  );
+};
 
 export default PostHogProvider;

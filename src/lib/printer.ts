@@ -1,4 +1,4 @@
-import type { PaymentReceipt } from "#/lib/payment";
+import type { PaymentReceipt } from "#/lib/payment.functions";
 
 export const printedReceipts: PaymentReceipt[] = [];
 

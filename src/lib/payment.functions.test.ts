@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { createTestDatabase, mockDatabaseModule, withStartContext } from "#/test/db-test-support";
 import { kioskOrderCounters, orders, paymentAttempts } from "#/db/schema";
-import type { PaymentReceipt, StartPaymentAttemptResult } from "./payment.functions";
+import type { PaymentReceipt, StartPaymentAttemptResult } from "./payment.functions.server";
 
 const db = await createTestDatabase(`file:/tmp/self-service-payment-${randomUUID()}.db`);
 await db.run(sql`
@@ -38,7 +38,7 @@ const {
   expirePaymentAttemptHandler,
   reconcilePaymentAttemptHandler,
   startPaymentAttemptHandler,
-} = await import("./payment.functions");
+} = await import("./payment.functions.server");
 
 const setKioskCookie = (kioskId: string) => {
   requestCookie = `kiosk_session=${signKioskCookie(

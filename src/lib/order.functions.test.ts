@@ -52,7 +52,7 @@ mock.module("@tanstack/react-start/server", () => ({
 
 // Import after mocks so direct server-function execution gets the shared test context.
 const { signKioskCookie } = await import("./kiosk-cookie.server");
-const { createOrderHandler, CreateOrderError } = await import("./order.functions");
+const { createOrderHandler, CreateOrderError } = await import("./order.functions.server");
 
 const setKioskCookie = (kioskId = "kiosk-a") => {
   requestCookie = `kiosk_session=${signKioskCookie(

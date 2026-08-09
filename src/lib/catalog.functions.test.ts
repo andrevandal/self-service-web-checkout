@@ -34,7 +34,7 @@ await db.run(sql`INSERT INTO addons
     ('addon-inactive', 'addon-group-coffee', 'inactive-addon', 'Inactive Add-on', 200, 0)`);
 
 mockDatabaseModule(db);
-const { loadMenu } = await import("./catalog.functions");
+const { loadMenu } = await import("./catalog.functions.server");
 
 test("getMenu returns the active catalog in a nested deterministic shape", async () => {
   const menu = await withStartContext(() => loadMenu());

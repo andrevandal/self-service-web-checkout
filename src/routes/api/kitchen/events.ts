@@ -33,12 +33,11 @@ export const Route = createFileRoute("/api/kitchen/events")({
                 }
               }
             };
-
             enqueue(": connected\n\n");
             unsubscribe = kitchenEventDispatcher.subscribe((event) => {
               enqueue(`event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`);
             });
-            heartbeat = setInterval(() => enqueue(": heartbeat\n\n"), 15_000);
+            heartbeat = setInterval(() => enqueue(": heartbeat\n\n"), 5_000);
           },
           cancel() {
             closed = true;

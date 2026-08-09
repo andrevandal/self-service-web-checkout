@@ -6,7 +6,7 @@ import { CheckoutScreen } from "#/components/checkout-screen";
 import { CustomizationDrawer } from "#/components/customization-drawer";
 import { KioskShell } from "#/components/kiosk-shell";
 import { cartReducer, subtotalCents, type CartLineInput, type CartState } from "#/lib/cart";
-import { getMenu, type MenuProduct } from "#/lib/menu";
+import { getMenu, type MenuProduct } from "#/lib/catalog.functions";
 import { useAbandonment, type PaymentContext } from "#/lib/use-abandonment";
 
 export type MenuScreenProps = {

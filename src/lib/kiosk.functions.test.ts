@@ -24,7 +24,7 @@ mock.module("@tanstack/react-start/server", () => ({
   setResponseHeader: (name: string, value: string) => responseHeaders.set(name, value),
 }));
 
-const { listKiosksHandler, claimKioskHandler } = await import("./kiosk.functions");
+const { listKiosksHandler, claimKioskHandler } = await import("./kiosk.functions.server");
 const { setKioskCookie, signKioskCookie, verifyKioskCookie, readKioskCookie } =
   await import("./kiosk-cookie.server");
 

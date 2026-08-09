@@ -4,8 +4,8 @@ import { claimFixtureKiosk } from "./kiosk-claim-helpers";
 test("pays for an order, confirms pickup, and resets the menu", async ({ page }) => {
   await claimFixtureKiosk(page);
 
-  await page.getByRole("button", { name: /Classic cheese toastie.*\$6\.50/ }).click();
-  await expect(page.getByRole("contentinfo").getByText("$6.50")).toBeVisible();
+  await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).click();
+  await expect(page.getByRole("contentinfo").getByText("$3.50")).toBeVisible();
 
   await page.getByRole("button", { name: "Pay" }).click();
   await expect(page.getByRole("heading", { name: "Taking payment" })).toBeVisible();
