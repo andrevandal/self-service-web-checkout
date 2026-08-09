@@ -110,8 +110,9 @@ not a history of how it got there.
 - Calm, efficient tone — no upsell, no corporate filler, no emoji; real
   currency values; sentence-case copy throughout.
 - Visual language: warm paper background, single forest-green accent
-  reserved for the primary action/selected state, Inter for UI text,
-  monospace for glanceable numbers (prices, order numbers).
+  reserved for the primary action/selected state, Inter as the single
+  UI face throughout, including glanceable numbers (prices, order
+  numbers) — no separate monospace face.
 
 ## User flows
 
