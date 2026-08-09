@@ -61,5 +61,28 @@ bun run build
 bun run start
 ```
 
+## Container runtime
+
+Build and run the runtime-only image with:
+
+```bash
+docker build -t self-service-web-checkout .
+docker run --rm -p 3000:3000 \
+  -e DATABASE_URL=file:/app/data/local.db \
+  -e KIOSK_CLAIM_PASSWORD=replace-for-your-environment \
+  -e KIOSK_COOKIE_SECRET=replace-for-your-environment \
+  -e STAFF_COOKIE_SECRET=replace-for-your-environment \
+  -e KIOSK_COOKIE_SECURE=false \
+  -e STAFF_COOKIE_SECURE=false \
+  -v kiosk-data:/app/data \
+  self-service-web-checkout
+```
+
+The `kiosk-data` volume must already contain a reachable, migrated, seeded
+database. This command demonstrates runtime configuration only; it does not
+provision, migrate, or seed the database. See the [deployment
+guide](docs/deployment.md) for the database and migration boundary.
+
+
 See [docs/](docs/) for deployment and contributor
 guidance.

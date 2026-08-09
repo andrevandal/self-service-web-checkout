@@ -5,12 +5,17 @@ provision a reverse proxy, load balancer, or managed database. Choose one
 topology for a deployment and keep its database URL and migration runner
 consistent with that choice.
 
+The application image is runtime-only: it starts the built server and does not
+provision, migrate, or seed a database. Before starting a topology, its
+database must already be reachable, migrated, and seeded, and app secrets must
+be supplied by the deployment environment.
+
 ## Topology reference
 
 | File | Database boundary | App-tier behavior | Persistent state and secrets |
 | --- | --- | --- | --- |
-| `docker-compose.yml` | The app container owns a file-mode SQLite/libSQL database at `/app/data/local.db`. | One app container, exposed on host port `3000`. | Named `local-data` volume; no secrets. |
-| `docker-compose.sqld.yml` | A single internal `sqld` container is the database boundary. The app reaches its HTTP endpoint at `http://db:8080`. | One app container, exposed on host port `3000`. | Named `sqld-data` volume; no secrets. |
+| `docker-compose.yml` | The app container owns a file-mode SQLite/libSQL database at `/app/data/local.db`. | One app container, exposed on host port `3000`. | Named `local-data` volume holds the database; app secrets are supplied at runtime. |
+| `docker-compose.sqld.yml` | A single internal `sqld` container is the database boundary. The app reaches its HTTP endpoint at `http://db:8080`. | One app container, exposed on host port `3000`. | Named `sqld-data` volume holds the database; app secrets are supplied at runtime. |
 
 Both topologies run exactly one `app` process; neither supplies app-tier or
 database-tier high availability.
@@ -26,6 +31,9 @@ docker compose -f docker-compose.sqld.yml up --build
 
 Use only the command matching the selected topology; the examples are
 alternatives, not a stack to run simultaneously.
+
+The compose examples require an initialized database and runtime app secrets;
+they are topology references, not a zero-config first run.
 
 ## Migration boundary
 
