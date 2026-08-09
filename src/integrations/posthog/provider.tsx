@@ -8,7 +8,8 @@ if (typeof window !== "undefined" && env.VITE_POSTHOG_KEY) {
     api_host: env.VITE_POSTHOG_HOST || "https://us.i.posthog.com",
     person_profiles: "identified_only",
     capture_pageview: false,
-    defaults: "2025-11-30",
+    opt_out_useragent_filter: true,
+    request_batching: false,
   });
 }
 

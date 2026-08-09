@@ -10,6 +10,9 @@ declare module 'virtual:env/client' {
   const env: {
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
+    readonly VITE_TERMINAL_DELAY_MS: string
+    readonly VITE_CART_IDLE_TIMEOUT_MS: string
+    readonly VITE_CART_IDLE_COUNTDOWN_SECONDS: string
   }
   export { env }
   export default env
@@ -26,6 +29,9 @@ declare module 'virtual:env/server' {
     readonly STAFF_COOKIE_SECURE: string
     readonly VITE_POSTHOG_KEY: string
     readonly VITE_POSTHOG_HOST: string
+    readonly VITE_TERMINAL_DELAY_MS: string
+    readonly VITE_CART_IDLE_TIMEOUT_MS: string
+    readonly VITE_CART_IDLE_COUNTDOWN_SECONDS: string
   }
   export { env }
   export default env

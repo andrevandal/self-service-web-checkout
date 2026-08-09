@@ -35,6 +35,9 @@ const serverEnvFields = {
 const clientEnvFields = {
   VITE_POSTHOG_KEY: v.optional(v.string()),
   VITE_POSTHOG_HOST: v.optional(v.string()),
+  VITE_TERMINAL_DELAY_MS: v.optional(v.string()),
+  VITE_CART_IDLE_TIMEOUT_MS: v.optional(v.string()),
+  VITE_CART_IDLE_COUNTDOWN_SECONDS: v.optional(v.string()),
 };
 
 export const serverEnvSchema = v.object(serverEnvFields);

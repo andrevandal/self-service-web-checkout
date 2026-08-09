@@ -1,11 +1,25 @@
+import { useQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
+import { KioskClaimScreen } from "#/components/kiosk-claim-screen";
+import { MenuScreen } from "#/components/menu-screen";
+import { getKioskSession } from "#/lib/kiosk-session";
 
 const Home = () => {
-  return (
-    <main className="p-8">
-      <h1 className="text-4xl font-bold">Self-service web checkout</h1>
-    </main>
-  );
+  const session = Route.useLoaderData();
+  const sessionQuery = useQuery({
+    queryKey: ["kiosk-session"],
+    queryFn: () => getKioskSession(),
+    initialData: session,
+  });
+
+  if (!sessionQuery.data) {
+    return <KioskClaimScreen />;
+  }
+
+  return <MenuScreen kioskId={sessionQuery.data.id} kioskName={sessionQuery.data.name} />;
 };
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  loader: () => getKioskSession(),
+  component: Home,
+});
