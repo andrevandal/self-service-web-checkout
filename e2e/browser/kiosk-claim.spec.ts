@@ -32,3 +32,16 @@ test("claims an existing kiosk, creates a kiosk, and persists kiosk mode", async
   await page.reload();
   await expect(page.getByRole("heading", { name: "Set up this kiosk" })).toBeVisible();
 });
+
+test("rejects an incorrect setup password before revealing the kiosk chooser", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByRole("heading", { name: "Set up this kiosk" })).toBeVisible();
+
+  await page.getByLabel("Shared setup password").fill("wrong-password");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByText("That setup password is not correct.")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Choose a kiosk" })).toBeHidden();
+
+  await enterSetupPassword(page);
+  await expect(page.getByRole("heading", { name: "Choose a kiosk" })).toBeVisible();
+});

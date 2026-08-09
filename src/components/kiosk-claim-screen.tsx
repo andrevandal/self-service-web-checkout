@@ -2,7 +2,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState, type FormEvent } from "react";
 import { ArrowRight, KeyRound, Store } from "lucide-react";
 import { KioskShell } from "#/components/kiosk-shell";
-import { claimKiosk, listKiosks, type ClaimKioskInput } from "#/lib/kiosk.functions";
+import {
+  claimKiosk,
+  listKiosks,
+  verifySetupPassword,
+  type ClaimKioskInput,
+} from "#/lib/kiosk.functions";
 
 const normalizePrefix = (value: string): string | null => {
   const prefix = value.trim().toUpperCase();
@@ -52,6 +57,17 @@ export const KioskClaimScreen = () => {
     },
   });
 
+  const verifyPasswordMutation = useMutation({
+    mutationFn: (data: { password: string }) => verifySetupPassword({ data }),
+    onSuccess: () => {
+      setPasswordError(null);
+      setSetupReady(true);
+    },
+    onError: (error) => {
+      setPasswordError(errorCopy(error, "We could not verify that password. Try again."));
+    },
+  });
+
   const continueSetup = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!password.trim()) {
@@ -59,7 +75,7 @@ export const KioskClaimScreen = () => {
       return;
     }
     setPasswordError(null);
-    setSetupReady(true);
+    verifyPasswordMutation.mutate({ password });
   };
 
   const claimExisting = (kioskId: string) => {
@@ -142,10 +158,11 @@ export const KioskClaimScreen = () => {
               ) : null}
             </div>
             <button
-              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97]"
+              className="inline-flex min-h-12 items-center justify-center gap-2 rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground transition-transform duration-150 active:scale-[0.97] disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={verifyPasswordMutation.isPending}
               type="submit"
             >
-              Continue
+              {verifyPasswordMutation.isPending ? "Verifying…" : "Continue"}
               <ArrowRight aria-hidden size={20} strokeWidth={2} />
             </button>
           </form>

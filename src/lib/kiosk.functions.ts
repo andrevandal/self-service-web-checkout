@@ -4,6 +4,7 @@ import {
   claimKioskServerHandler,
   getKioskSessionHandler,
   listKiosksHandler,
+  verifySetupPasswordHandler,
 } from "./kiosk.functions.server";
 
 export type Kiosk = {
@@ -33,3 +34,7 @@ export const claimKiosk = createServerFn({ method: "POST" })
   .handler(claimKioskServerHandler);
 
 export const getKioskSession = createServerFn({ method: "GET" }).handler(getKioskSessionHandler);
+
+export const verifySetupPassword = createServerFn({ method: "POST" })
+  .validator((input: { password: string }) => input)
+  .handler(({ data }) => verifySetupPasswordHandler(data));

@@ -81,10 +81,16 @@ export type PaymentAttemptErrorCode =
 export class PaymentAttemptError extends Error {
   constructor(
     public readonly code: PaymentAttemptErrorCode,
-    message: string,
+    detail: string,
   ) {
-    super(message);
+    // `message` is the only Error property TanStack Start's RPC serializer
+    // preserves across the client/server boundary (see
+    // @tanstack/router-core's ShallowErrorPlugin). Using `code` as the
+    // message lets client-side error-copy lookups key off `error.message`
+    // after deserialization; `detail` stays available server-side.
+    super(code);
     this.name = "PaymentAttemptError";
+    this.cause = detail;
   }
 }
 

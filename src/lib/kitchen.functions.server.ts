@@ -36,10 +36,16 @@ export type StaffSessionErrorCode =
 export class StaffSessionError extends Error {
   constructor(
     public readonly code: StaffSessionErrorCode,
-    message: string,
+    detail: string,
   ) {
-    super(message);
+    // `message` is the only Error property TanStack Start's RPC serializer
+    // preserves across the client/server boundary (see
+    // @tanstack/router-core's ShallowErrorPlugin). Using `code` as the
+    // message lets client-side error-copy lookups key off `error.message`
+    // after deserialization; `detail` stays available server-side.
+    super(code);
     this.name = "StaffSessionError";
+    this.cause = detail;
   }
 }
 
@@ -53,10 +59,11 @@ export type KitchenOrderErrorCode =
 export class KitchenOrderError extends Error {
   constructor(
     public readonly code: KitchenOrderErrorCode,
-    message: string,
+    detail: string,
   ) {
-    super(message);
+    super(code);
     this.name = "KitchenOrderError";
+    this.cause = detail;
   }
 }
 
@@ -105,10 +112,10 @@ const requireKitchenStaffSession = () => {
     requireStaffSession();
   } catch (error) {
     if (error instanceof StaffSessionError && error.code === "configuration") {
-      throw new KitchenOrderError("configuration", error.message);
+      throw new KitchenOrderError("configuration", String(error.cause ?? error.message));
     }
     if (error instanceof StaffSessionError && error.code === "staff_identity") {
-      throw new KitchenOrderError("staff_identity", error.message);
+      throw new KitchenOrderError("staff_identity", String(error.cause ?? error.message));
     }
     throw error;
   }

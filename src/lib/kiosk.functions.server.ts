@@ -15,10 +15,20 @@ type KioskClaimErrorCode =
 export class KioskClaimError extends Error {
   constructor(
     public readonly code: KioskClaimErrorCode,
-    message: string,
+    detail: string,
   ) {
-    super(message);
+    // `message` is the only Error property TanStack Start's RPC serializer
+    // preserves across the client/server boundary (see
+    // @tanstack/router-core's ShallowErrorPlugin, which reconstructs a
+    // thrown error as `new Error(message)` and drops every other
+    // property, including `code`). Using `code` as the message lets
+    // client-side error-copy lookups key off `error.message` and still
+    // resolve the correct typed error after deserialization; `detail`
+    // remains available server-side for logging/debugging before the
+    // response is serialized.
+    super(code);
     this.name = "KioskClaimError";
+    this.cause = detail;
   }
 }
 const toKiosk = (row: Kiosk): Kiosk => ({
@@ -47,6 +57,19 @@ const passwordsMatch = (provided: string, configured: string) => {
   const providedDigest = passwordDigest(provided);
   const configuredDigest = passwordDigest(configured);
   return timingSafeEqual(providedDigest, configuredDigest);
+};
+
+export const verifySetupPasswordHandler = async (data: {
+  password: string;
+}): Promise<{ valid: true }> => {
+  const { KIOSK_CLAIM_PASSWORD } = serverEnv;
+  if (!KIOSK_CLAIM_PASSWORD) {
+    throw new KioskClaimError("configuration", "Kiosk claim is not configured");
+  }
+  if (!passwordsMatch(data.password, KIOSK_CLAIM_PASSWORD)) {
+    throw new KioskClaimError("invalid_password", "Invalid kiosk claim password");
+  }
+  return { valid: true };
 };
 
 const isUniquePrefixError = (error: unknown) => {

@@ -24,7 +24,8 @@ mock.module("@tanstack/react-start/server", () => ({
   setResponseHeader: (name: string, value: string) => responseHeaders.set(name, value),
 }));
 
-const { listKiosksHandler, claimKioskHandler } = await import("./kiosk.functions.server");
+const { listKiosksHandler, claimKioskHandler, verifySetupPasswordHandler } =
+  await import("./kiosk.functions.server");
 const { setKioskCookie, signKioskCookie, verifyKioskCookie, readKioskCookie } =
   await import("./kiosk-cookie.server");
 
@@ -67,6 +68,18 @@ test("listKiosks returns every kiosk ordered by name then id", async () => {
     { id: "kiosk-a", name: "Alpha kiosk", prefix: "A" },
     { id: "kiosk-b", name: "Beta kiosk", prefix: "B" },
   ]);
+});
+
+test("verifySetupPassword accepts the correct shared password", async () => {
+  await expect(
+    withStartContext(() => verifySetupPasswordHandler({ password: "setup-secret" })),
+  ).resolves.toEqual({ valid: true });
+});
+
+test("verifySetupPassword rejects the wrong shared password", async () => {
+  await expect(
+    withStartContext(() => verifySetupPasswordHandler({ password: "wrong" })),
+  ).rejects.toMatchObject({ code: "invalid_password" });
 });
 
 test("claimKiosk rejects the wrong shared password", async () => {
