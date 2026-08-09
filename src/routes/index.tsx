@@ -16,7 +16,7 @@ const Home = () => {
     return <KioskClaimScreen />;
   }
 
-  return <MenuScreen kioskName={sessionQuery.data.name} />;
+  return <MenuScreen kioskId={sessionQuery.data.id} kioskName={sessionQuery.data.name} />;
 };
 
 export const Route = createFileRoute("/")({

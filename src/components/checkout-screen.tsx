@@ -20,9 +20,14 @@ export type CheckoutScreenProps = {
   cart: CartState;
   onCancel: () => void;
   onComplete: () => void;
+  onPaymentStateChange: (state: {
+    phase: CheckoutPhase;
+    orderId: string | null;
+    attemptId: string | null;
+  }) => void;
 };
 
-type CheckoutPhase =
+export type CheckoutPhase =
   | "creating_order"
   | "starting_attempt"
   | "taking_payment"
@@ -52,11 +57,17 @@ const busyCopy = (phase: CheckoutPhase): string => {
   }
 };
 
-export const CheckoutScreen = ({ cart, onCancel, onComplete }: CheckoutScreenProps) => {
+export const CheckoutScreen = ({
+  cart,
+  onCancel,
+  onComplete,
+  onPaymentStateChange,
+}: CheckoutScreenProps) => {
   const mountedRef = useRef(true);
   const createPendingOrderRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const [phase, setPhase] = useState<CheckoutPhase>("creating_order");
   const [order, setOrder] = useState<CreateOrderResult | null>(null);
+  const [attemptId, setAttemptId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [failureMessage, setFailureMessage] = useState(START_FAILURE_COPY);
 
@@ -76,12 +87,14 @@ export const CheckoutScreen = ({ cart, onCancel, onComplete }: CheckoutScreenPro
       return;
     }
     setFailureMessage(PAYMENT_FAILURE_COPY);
+    setAttemptId(null);
     setPhase("starting_attempt");
     try {
       const attempt = await startAttemptMutation.mutateAsync({ orderId });
       if (!mountedRef.current) {
         return;
       }
+      setAttemptId(attempt.id);
       setPhase("taking_payment");
       const receipt = await executeTerminalCommand(attempt.terminalCommand, {
         expectedAmountCents: attempt.expectedAmountCents,
@@ -141,6 +154,14 @@ export const CheckoutScreen = ({ cart, onCancel, onComplete }: CheckoutScreenPro
       mountedRef.current = false;
     };
   }, []);
+
+  useEffect(() => {
+    onPaymentStateChange({
+      phase,
+      orderId: order?.id ?? null,
+      attemptId,
+    });
+  }, [attemptId, onPaymentStateChange, order?.id, phase]);
 
   const confirmationPhase = phase === "confirmed";
   useEffect(() => {

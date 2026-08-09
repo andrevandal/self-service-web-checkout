@@ -41,7 +41,7 @@
 Extend the `test:e2e` script so the built browser app receives short idle values and an enabled local PostHog client:
 
 ```json
-"test:e2e": "bun run db:migrate && VITE_TERMINAL_DELAY_MS=50 VITE_CART_IDLE_TIMEOUT_MS=150 VITE_CART_IDLE_COUNTDOWN_SECONDS=2 VITE_POSTHOG_KEY=phc_test VITE_POSTHOG_HOST=http://posthog.test bun run build && playwright test"
+"test:e2e": "bun run db:migrate && VITE_TERMINAL_DELAY_MS=50 VITE_CART_IDLE_TIMEOUT_MS=15000 VITE_CART_IDLE_COUNTDOWN_SECONDS=3 VITE_POSTHOG_KEY=phc_test VITE_POSTHOG_HOST=http://posthog.test bun run build && playwright test"
 ```
 
 Add the two idle fields to `clientEnvFields` as optional strings alongside `VITE_TERMINAL_DELAY_MS`. The existing `defineStandardEnv` schema remains the validation boundary; runtime parsing belongs in the idle module so malformed values fall back safely.
@@ -382,7 +382,7 @@ Run:
 
 ```bash
 bun test src/lib/idle-timer.test.ts src/lib/payment.test.ts
-VITE_CART_IDLE_TIMEOUT_MS=150 VITE_CART_IDLE_COUNTDOWN_SECONDS=2 VITE_POSTHOG_KEY=phc_test VITE_POSTHOG_HOST=http://posthog.test bun run build
+VITE_CART_IDLE_TIMEOUT_MS=15000 VITE_CART_IDLE_COUNTDOWN_SECONDS=3 VITE_POSTHOG_KEY=phc_test VITE_POSTHOG_HOST=http://posthog.test bun run build
 bunx playwright test e2e/browser/abandonment-ux.spec.ts
 ```
 

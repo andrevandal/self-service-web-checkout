@@ -128,7 +128,7 @@ export const useAbandonment = ({
   useEffect(() => {
     reset();
     return clearTimers;
-  }, [active, clearTimers, reset]);
+  }, [active, clearTimers, payment !== null, reset]);
 
   useEffect(() => {
     if (state.phase !== "warning") {
