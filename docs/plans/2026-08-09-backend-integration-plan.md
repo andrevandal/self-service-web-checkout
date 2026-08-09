@@ -352,7 +352,7 @@ bunx tsc --noEmit --pretty false
 Then search only source/test files for the seam paths:
 
 ```bash
-bunx grep -R 'lib/menu\|lib/kiosk-session\|lib/payment\|lib/kitchen' src e2e
+grep -R 'lib/menu\|lib/kiosk-session\|lib/payment\|lib/kitchen' src e2e
 ```
 
 Expected: no import matches. If a match remains, migrate that caller before deletion; do not leave aliases or compatibility re-exports.
