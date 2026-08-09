@@ -103,7 +103,7 @@ const productsSeed = [
     description: "Classic NYC toasted bagel with cream cheese.",
     basePriceCents: 475,
     imageUrl:
-      "https://images.unsplash.com/photo-1585478259715-876acc5be8eb?auto=format&fit=crop&w=600&q=80",
+      "https://images.unsplash.com/photo-1687175452217-e4f8e523b5b5?auto=format&fit=crop&w=600&q=80",
     isAvailable: true,
   },
   {
