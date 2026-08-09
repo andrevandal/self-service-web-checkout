@@ -21,3 +21,20 @@ test("pays for an order, confirms pickup, and resets the menu", async ({ page })
   await expect(page.getByRole("contentinfo").getByText("0 items · $0.00")).toBeVisible();
   await expect(page.getByRole("button", { name: "Pay" })).toBeDisabled();
 });
+
+test("pays with a debit card", async ({ page }) => {
+  await claimFixtureKiosk(page);
+
+  await page.getByRole("button", { name: /Espresso.*\$3\.50/ }).click();
+  await expect(page.getByRole("contentinfo").getByText("$3.50")).toBeVisible();
+
+  await page.getByRole("button", { name: "Pay" }).click();
+  await expect(page.getByRole("heading", { name: "How would you like to pay?" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Credit card" })).toBeVisible();
+  await page.getByRole("button", { name: "Debit card" }).click();
+
+  await expect(page.getByRole("heading", { name: "Payment complete" })).toBeVisible({
+    timeout: 15_000,
+  });
+  await expect(page.getByText(/^[A-Z]-\d+$/)).toBeVisible();
+});
