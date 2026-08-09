@@ -42,6 +42,10 @@ jobs:
         run: bunx playwright install --with-deps chromium
 
       - name: Run end-to-end tests
+        env:
+          KIOSK_CLAIM_PASSWORD: dev-kiosk-claim-2026
+          KIOSK_COOKIE_SECRET: dev-kiosk-cookie-secret-2026-rotate
+          STAFF_COOKIE_SECRET: dev-staff-cookie-secret-2026-rotate
         run: bun run test:e2e
 
       - name: Build application
