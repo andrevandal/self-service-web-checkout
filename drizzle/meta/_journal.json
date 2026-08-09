@@ -8,6 +8,41 @@
       "when": 1786057820143,
       "tag": "0000_normal_smiling_tiger",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1786224128294,
+      "tag": "0001_nice_victor_mancha",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1786228377173,
+      "tag": "0002_flippant_skaar",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1786228508746,
+      "tag": "0003_busy_thunderbird",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1786230002789,
+      "tag": "0004_burly_juggernaut",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1786231151205,
+      "tag": "0005_supreme_roughhouse",
+      "breakpoints": true
     }
   ]
 }

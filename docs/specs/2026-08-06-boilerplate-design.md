@@ -220,12 +220,14 @@ or UI is defined here — see "Non-goals."
 - **Local dev**: libSQL's embedded **file mode**, defaulted in `env.ts` to
   `file:./.data/local.db` when unset or empty — no `.env` required to start.
   `.data/` is gitignored. No server process or Docker required. `bun run dev`
-  is the dev loop; one `bun run db:migrate` (once, to create `pings`) is a
-  prerequisite, not part of the "no setup" claim.
-- **Example schema**: a single `pings` table (`id`, `createdAt`) — exists
-  purely so `scripts/seed.ts` and `recordPing()`'s own unit test can
-  prove a real read/write round-trip through Drizzle + libSQL. Decoupled
-  from `/api/health`, which never writes to it (see
+  is the dev loop; one `bun run db:migrate` (once, to create the schema)
+  is a prerequisite, not part of the "no setup" claim.
+- **Example schema**: a single `pings` table (`id`, `createdAt`) proved a
+  real read/write round-trip through Drizzle + libSQL before any real
+  domain schema existed. Removed once the catalog tables (see
+  `docs/specs/2026-08-08-catalog-data-model-design.md`) took over that
+  role — `scripts/seed.ts` seeds the catalog now, not pings. `/api/health`
+  never depended on it (see
   [Application framework](#application-framework)).
 - **Deployment**: Docker-based (see [Deployment topologies](#deployment-topologies-docker-compose)).
   No CI/CD automation triggers deployment — an external service clones the

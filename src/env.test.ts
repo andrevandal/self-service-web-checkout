@@ -17,3 +17,16 @@ test("coerces string PORT to a number", () => {
 test("accepts an internal sqld HTTP endpoint", () => {
   expect(parseServerEnv({ DATABASE_URL: "http://db:8080" }).DATABASE_URL).toBe("http://db:8080");
 });
+
+test("defaults kiosk claim configuration safely", () => {
+  expect(parseServerEnv({})).toMatchObject({
+    KIOSK_CLAIM_PASSWORD: "",
+    KIOSK_COOKIE_SECRET: "",
+    KIOSK_COOKIE_SECURE: false,
+  });
+});
+
+test("coerces the kiosk cookie secure flag", () => {
+  expect(parseServerEnv({ KIOSK_COOKIE_SECURE: "true" }).KIOSK_COOKIE_SECURE).toBe(true);
+  expect(parseServerEnv({ KIOSK_COOKIE_SECURE: "false" }).KIOSK_COOKIE_SECURE).toBe(false);
+});

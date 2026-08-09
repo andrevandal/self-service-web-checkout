@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as KitchenRouteImport } from './routes/kitchen'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiKitchenEventsRouteImport } from './routes/api/kitchen/events'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,35 +29,44 @@ const ApiHealthRoute = ApiHealthRouteImport.update({
   path: '/api/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiKitchenEventsRoute = ApiKitchenEventsRouteImport.update({
+  id: '/api/kitchen/events',
+  path: '/api/kitchen/events',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/kitchen': typeof KitchenRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/kitchen/events': typeof ApiKitchenEventsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/kitchen': typeof KitchenRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/kitchen/events': typeof ApiKitchenEventsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/kitchen': typeof KitchenRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/kitchen/events': typeof ApiKitchenEventsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/kitchen' | '/api/health'
+  fullPaths: '/' | '/kitchen' | '/api/health' | '/api/kitchen/events'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/kitchen' | '/api/health'
-  id: '__root__' | '/' | '/kitchen' | '/api/health'
+  to: '/' | '/kitchen' | '/api/health' | '/api/kitchen/events'
+  id: '__root__' | '/' | '/kitchen' | '/api/health' | '/api/kitchen/events'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   KitchenRoute: typeof KitchenRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiKitchenEventsRoute: typeof ApiKitchenEventsRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -82,6 +92,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/kitchen/events': {
+      id: '/api/kitchen/events'
+      path: '/api/kitchen/events'
+      fullPath: '/api/kitchen/events'
+      preLoaderRoute: typeof ApiKitchenEventsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -89,6 +106,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   KitchenRoute: KitchenRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiKitchenEventsRoute: ApiKitchenEventsRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

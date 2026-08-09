@@ -17,6 +17,19 @@ const serverEnvFields = {
     v.minValue(1),
     v.maxValue(65535),
   ),
+  KIOSK_CLAIM_PASSWORD: v.optional(v.string(), ""),
+  KIOSK_COOKIE_SECRET: v.optional(v.string(), ""),
+  KIOSK_COOKIE_SECURE: v.pipe(
+    v.optional(v.union([v.boolean(), v.string()]), false),
+    v.transform((value) => (typeof value === "string" ? value === "true" : value)),
+  ),
+  STAFF_COOKIE_SECRET: v.optional(v.string(), ""),
+  STAFF_COOKIE_SECURE: v.pipe(
+    v.optional(v.union([v.boolean(), v.string()]), false),
+    v.transform((value) => (typeof value === "string" ? value === "true" : value)),
+  ),
+  POSTHOG_KEY: v.optional(v.string(), ""),
+  POSTHOG_HOST: v.optional(v.string(), ""),
 };
 
 const clientEnvFields = {
