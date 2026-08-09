@@ -29,11 +29,12 @@ Prerequisites:
 bun install
 cp .env.example .env
 bun run db:migrate
+bun run db:seed
 bun run dev
 ```
 
-- `.env` is optional: defaults use `DATABASE_URL=file:./.data/local.db` and
-`PORT=3000`.
+- Copied sample values are development-only and enable kiosk/staff flows locally.
+- Before deployment, replace the password, cookie secrets, cookie security settings, and database URL.
 - Open <http://localhost:3000/> or verify the running app:
 
 ```bash
