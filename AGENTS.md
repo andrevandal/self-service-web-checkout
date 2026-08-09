@@ -25,6 +25,11 @@ bun run build
 - **Keep docs current**: a PR that changes behavior a doc describes
   updates that doc in the **same PR**. Stale docs are a bug, not cleanup
   debt — treat them accordingly.
+- **Fix drift on sight**: if you discover mid-task that a spec, plan, or
+  any other doc is wrong, outdated, or contradicts the code — even when
+  that doc isn't the one you set out to change — patch it in the same
+  change. Don't defer it, don't route around it, don't leave a note for
+  later. Noticing drift creates an obligation to fix it, not just flag it.
 - Keep colocated tests focused on observable behavior and run the
   narrowest relevant check while iterating.
 
