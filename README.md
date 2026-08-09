@@ -32,8 +32,9 @@ bun run db:migrate
 bun run dev
 ```
 
-`.env` is optional: defaults use `DATABASE_URL=file:./.data/local.db` and
-`PORT=3000`. Open <http://localhost:3000/> or verify the running app:
+- `.env` is optional: defaults use `DATABASE_URL=file:./.data/local.db` and
+`PORT=3000`.
+- Open <http://localhost:3000/> or verify the running app:
 
 ```bash
 curl http://localhost:3000/api/health
