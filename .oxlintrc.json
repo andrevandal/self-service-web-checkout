@@ -8,5 +8,5 @@
     "curly": "error",
     "func-style": ["error", "expression"]
   },
-  "ignorePatterns": ["src/routeTree.gen.ts"]
+  "ignorePatterns": ["src/routeTree.gen.ts", "GOAL.md"]
 }
