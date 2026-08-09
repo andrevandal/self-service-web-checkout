@@ -65,6 +65,15 @@ export class KitchenError extends Error {
     this.code = code;
   }
 }
+export const validateStaffPassword = (password: unknown): string => {
+  if (typeof password !== "string" || !password.trim()) {
+    throw new KitchenError("invalid_input");
+  }
+  if (password !== STAFF_PASSWORD) {
+    throw new KitchenError("invalid_password");
+  }
+  return password;
+};
 
 const STAFF_PASSWORD = "warm-melted";
 const STAFF_COOKIE = "staff_session";
@@ -144,12 +153,7 @@ const requireStaffSession = () => {
 export const claimStaffSession = createServerFn({ method: "POST" })
   .validator((input: { password: string }) => input)
   .handler(({ data }): { issuedAt: number } => {
-    if (typeof data.password !== "string" || !data.password.trim()) {
-      throw new KitchenError("invalid_input");
-    }
-    if (data.password !== STAFF_PASSWORD) {
-      throw new KitchenError("invalid_password");
-    }
+    validateStaffPassword(data.password);
 
     const token = crypto.randomUUID();
     staffSessions.add(token);
