@@ -59,6 +59,5 @@ bun run build
 bun run start
 ```
 
-`bun run test:e2e` migrates the database, builds the app, and runs the
-Playwright browser test. See [docs/](docs/) for deployment and contributor
+See [docs/](docs/) for deployment and contributor
 guidance.
