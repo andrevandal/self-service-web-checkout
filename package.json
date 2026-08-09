@@ -18,7 +18,7 @@
     "format:fix": "oxfmt --write .",
     "typecheck": "tsc --noEmit",
     "test": "bun test src scripts",
-    "test:e2e": "bun run db:migrate && bun run build && playwright test",
+    "test:e2e": "bun run db:migrate && VITE_TERMINAL_DELAY_MS=50 VITE_CART_IDLE_TIMEOUT_MS=15000 VITE_CART_IDLE_COUNTDOWN_SECONDS=3 VITE_POSTHOG_KEY=phc_test VITE_POSTHOG_HOST=http://posthog.test bun run build && playwright test",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:seed": "bun scripts/seed.ts",
@@ -26,6 +26,7 @@
     "agents:update": "bun scripts/update-agent-plugins.ts"
   },
   "dependencies": {
+    "@fontsource/inter": "^5",
     "@libsql/client": "0.17.4",
     "@posthog/react": "1.10.3",
     "@tailwindcss/vite": "4.3.3",
