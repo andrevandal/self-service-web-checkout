@@ -20,18 +20,19 @@ The investigation recorded in `GOAL.md` was performed by direct reads of every r
 - `src/lib/menu.ts` and `src/lib/catalog.functions.ts` expose field-for-field identical menu types. Direct review found that the backend's nested menu declarations were not exported even though the UI imports `MenuProduct`; the integration must add `export` to the existing `MenuAddon`/`MenuAddonGroup`/`MenuVariantOption`/`MenuVariantGroup`/`MenuProduct`/`MenuCategory` declarations before swapping the import. This is visibility-only drift with no shape or runtime change.
 - `src/lib/kiosk-session.ts` and the backend kiosk functions agree on `Kiosk`, `listKiosks`, `claimKiosk`, and all five claim error codes. Direct review also found two visibility/name gaps: the UI's `KioskClaimInput` is named `ClaimKioskInput` in the backend, and the UI's `normalizePrefix` helper is intentionally private there. The swap will use `ClaimKioskInput` and move the existing three-line format validator into `kiosk-claim-screen.tsx`; backend validation remains authoritative. The backend has no `getKioskSession` export. The new function must read and verify `kiosk_session` through `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)`, query `kiosks` by `payload.kioskId`, and return `{ id, name, prefix }` or `null`.
 - `src/lib/payment.ts` matches `order.functions.ts` and `payment.functions.ts` for all types, inputs, outputs, and error codes. The expiry contract is already aligned as `expirePaymentAttempt({ data: { attemptId } })`.
-- `src/lib/kitchen.ts` matches the backend handler input/output shapes for `claimStaffSession`, `listActiveOrders`, and `advanceOrder`. The backend intentionally splits staff-session and order errors; the UI must retain a local six-code union for its message map. The backend `KitchenOrderEvent` paid variant has additional top-level fields but remains structurally compatible because the UI reads only `event.order`.
+- TanStack Start's import-protection boundary was verified during the first browser build: the backend modules' exported named handlers caused server-only imports to enter the client graph once the UI imported those modules. The integration therefore keeps `*.functions.ts` files client-safe (public types, validators, and thin `createServerFn` wrappers) and moves handler bodies plus DB/cookie/PostHog dependencies into colocated `*.functions.server.ts` files. Existing colocated backend tests import handlers from the new server files directly.
 - Every import swap is enumerated in `GOAL.md`: checkout screen, abandonment hook, kiosk claim screen, index route, kitchen screen, and menu screen.
 - `src/lib/checkout.ts` is frontend-owned cart-to-order mapping logic, not a temporary seam. It remains, but its duplicate `CreateOrderInput`/`CreateOrderResult` declarations will be replaced with imports from `order.functions.ts`.
 - Once imports are migrated, `menu.ts`, `kiosk-session.ts` plus its test, `payment.ts` plus its test, and `kitchen.ts` plus its test are dead and will be deleted.
 
 ## Implementation approach
 
-1. Implement `getKioskSession` in `src/lib/kiosk.functions.ts` as a named `createServerFn({ method: "GET" })`. Its handler will call `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)`, return `null` for a missing or invalid cookie, select the referenced kiosk row by id, and map it to the public `Kiosk` shape. It will not create a second session store or alter cookie semantics.
-2. Export the existing nested catalog types, swap each callsite in the verified list to the real backend module, and move the existing prefix-format helper into the kiosk claim component while importing `ClaimKioskInput`. In `kitchen-screen.tsx`, declare the six-code local `KitchenErrorCode` union and import `KitchenOrderEvent`/`KitchenOrder` from `kitchen.functions.ts`; keep the existing SSE route and duck-typed error handling unchanged.
-3. Make `checkout.ts` consume `CreateOrderInput` and `CreateOrderResult` from `order.functions.ts`, preserving its pure mapping behavior and existing tests.
-4. Delete only the four now-dead seam modules and their colocated tests. Do not delete `checkout.ts` or its test, backend handlers, or the SSE route.
-5. Create an ignored local `.env` containing the approved development-only values:
+1. Before wiring client callsites, split each backend `*.functions.ts` module at the TanStack import-protection boundary: move DB/cookie/PostHog imports and named handler bodies to colocated `*.functions.server.ts` files, keep public types/validators and thin wrappers in the importable modules, and repoint backend tests to server handlers. The exported client-facing function names and all handler contracts remain unchanged.
+2. Implement `getKioskSession` in `src/lib/kiosk.functions.ts` as a named `createServerFn({ method: "GET" })`. Its server handler will call `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)`, return `null` for a missing or invalid cookie, select the referenced kiosk row by id, and map it to the public `Kiosk` shape. It will not create a second session store or alter cookie semantics.
+3. Export the existing nested catalog types, swap each callsite in the verified list to the real backend module, and move the existing prefix-format helper into the kiosk claim component while importing `ClaimKioskInput`. In `kitchen-screen.tsx`, declare the six-code local `KitchenErrorCode` union and import `KitchenOrderEvent`/`KitchenOrder` from `kitchen.functions.ts`; keep the existing SSE route and duck-typed error handling unchanged.
+4. Make `checkout.ts` consume `CreateOrderInput` and `CreateOrderResult` from `order.functions.ts`, preserving its pure mapping behavior and existing tests.
+5. Delete only the four now-dead seam modules and their colocated tests. Do not delete `checkout.ts` or its test, backend handlers, or the SSE route.
+6. Create an ignored local `.env` containing the approved development-only values:
 
    ```dotenv
    KIOSK_CLAIM_PASSWORD=dev-kiosk-claim-2026
@@ -40,7 +41,7 @@ The investigation recorded in `GOAL.md` was performed by direct reads of every r
    ```
 
    `POSTHOG_KEY` and `POSTHOG_HOST` remain optional. The values are intentionally non-production and must never be committed.
-6. Run the focused backend tests and browser suite after each seam migration, then run the full lint, format, typecheck, unit test, and build commands. Finally migrate and seed the real database, start the built app, and drive the live customer and staff flow.
+7. Run the focused backend tests and browser suite after each seam migration, then run the full lint, format, typecheck, unit test, and build commands. Finally migrate and seed the real database, start the built app, and drive the live customer and staff flow.
 
 ## Runtime flow and error handling
 
