@@ -144,7 +144,7 @@ const requireStaffSession = () => {
 export const claimStaffSession = createServerFn({ method: "POST" })
   .validator((input: { password: string }) => input)
   .handler(({ data }): { issuedAt: number } => {
-    if (!data.password.trim()) {
+    if (typeof data.password !== "string" || !data.password.trim()) {
       throw new KitchenError("invalid_input");
     }
     if (data.password !== STAFF_PASSWORD) {
@@ -167,7 +167,13 @@ export const listActiveOrders = createServerFn({ method: "GET" }).handler((): Ki
 export const advanceOrder = createServerFn({ method: "POST" })
   .validator((input: { orderId: string; toStatus: "preparing" | "done" }) => input)
   .handler(({ data }): OrderStatusEvent => {
-    requireStaffSession();
+    if (
+      typeof data.orderId !== "string" ||
+      !data.orderId.trim() ||
+      (data.toStatus !== "preparing" && data.toStatus !== "done")
+    ) {
+      throw new KitchenError("invalid_input");
+    }
 
     const order = fixtureOrders.find((candidate) => candidate.id === data.orderId);
     if (!order) {
