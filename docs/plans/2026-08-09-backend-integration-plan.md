@@ -16,6 +16,7 @@
 - Use `ClaimKioskInput` from `kiosk.functions.ts`; move the existing three-line client-side `normalizePrefix(value: string): string | null` format helper into `kiosk-claim-screen.tsx` because the backend helper is private. Backend validation remains authoritative.
 - Implement `getKioskSession(): Promise<Kiosk | null>` as a named GET server function that verifies `readKioskCookie(serverEnv.KIOSK_COOKIE_SECRET)` and resolves the kiosk row by id.
 - Keep `KitchenErrorCode` as a local six-code UI union, import `KitchenOrder` and backend `KitchenOrderEvent` from `kitchen.functions.ts`, and do not change the real SSE route.
+- When a UI imports a backend `*.functions.ts` module, keep TanStack import-protection intact: server-only DB/cookie/PostHog dependencies and named handler bodies belong in colocated `*.functions.server.ts` modules; wrappers must not re-export handlers for client convenience.
 - Keep `src/lib/checkout.ts` and `src/lib/checkout.test.ts`; import `CreateOrderInput` and `CreateOrderResult` from `order.functions.ts` instead of duplicating them.
 - Delete only `menu.ts`, `kiosk-session.ts` and `kiosk-session.test.ts`, `payment.ts` and `payment.test.ts`, and `kitchen.ts` and `kitchen.test.ts` after all imports are migrated.
 - Use the approved local-only environment values; `.env` is ignored and must not be committed:
@@ -31,11 +32,59 @@
 - The final proof must use `bun run db:migrate`, `bun run db:seed`, the built server, and a live browser against the real database; report observed states, not only command exit codes.
 
 ---
+### Task 0: Isolate server-only backend handler bodies
+
+**Files:**
+- Create: `src/lib/catalog.functions.server.ts`
+- Create: `src/lib/kiosk.functions.server.ts`
+- Create: `src/lib/order.functions.server.ts`
+- Create: `src/lib/payment.functions.server.ts`
+- Create: `src/lib/kitchen.functions.server.ts`
+- Modify: each corresponding `src/lib/*.functions.ts` wrapper
+- Modify: `src/lib/catalog.functions.test.ts`, `kiosk.functions.test.ts`, `order.functions.test.ts`, `payment.functions.test.ts`, and `kitchen.functions.test.ts`
+
+**Interfaces:**
+- Consumes: the existing backend handler bodies and their current exported input/output/error types.
+- Produces: client-safe `*.functions.ts` modules containing public types, Valibot validators, and `createServerFn` wrappers; server-only `*.functions.server.ts` modules containing DB/cookie/PostHog imports and named handlers. Public server-function names and payload contracts do not change.
+
+- [ ] **Step 1: Move catalog and kiosk server implementations.**
+
+Move `loadMenu` and its DB/schema imports to `catalog.functions.server.ts`, import its `Menu` type from `catalog.functions.ts`, and leave `getMenu = createServerFn({ method: \"GET\" }).handler(loadMenu)` in the wrapper. Move kiosk `getKioskSessionHandler`, `listKiosksHandler`, `claimKioskHandler`, their crypto/DB/cookie helpers, and `KioskClaimError` to `kiosk.functions.server.ts`; leave `Kiosk`, `ClaimKioskInput`, the Valibot input schema, and thin wrappers in `kiosk.functions.ts`. Use a direct imported handler for `claimKiosk`:
+
+```ts
+import { claimKioskServerHandler } from \"./kiosk.functions.server\";
+
+export const claimKiosk = createServerFn({ method: \"POST\" })
+  .validator((input) => v.parse(claimKioskInputSchema, input))
+  .handler(claimKioskServerHandler);
+```
+
+`claimKioskServerHandler` adapts `{ data: ClaimKioskInput }` to the existing tested `claimKioskHandler(data)` without changing its result or errors.
+
+- [ ] **Step 2: Move order, payment, and kitchen server implementations.**
+
+Move each module's DB/cookie/PostHog imports, error classes, named handler bodies, and internal helpers to its matching `.server.ts` file. Keep public types and validators in the wrapper; import server handlers directly into `.handler(...)`. `payment.functions.server.ts` must import `getKitchenOrderSnapshot` from `kitchen.functions.server.ts` rather than the client-safe wrapper. Tests must import `loadMenu`, `createOrderHandler`, payment handlers, and kitchen handlers/errors from their `.server.ts` files, preserving the existing test bodies.
+
+- [ ] **Step 3: Run every backend suite before wiring UI imports.**
+
+Run:
+
+```bash
+bun test src/lib/catalog.functions.test.ts src/lib/kiosk.functions.test.ts src/lib/order.functions.test.ts src/lib/payment.functions.test.ts src/lib/kitchen.functions.test.ts
+bun run build
+```
+
+Expected: all existing backend tests pass and the production build succeeds without import-protection errors. If a server-only import is still reachable from a client wrapper, move that import or named handler body into the corresponding `.server.ts` file; do not weaken tests or disable import protection.
+
+---
+
 
 ### Task 1: Add the backend session lookup and catalog type visibility
 
 **Files:**
+- Modify: `src/lib/kiosk.functions.server.ts`
 - Modify: `src/lib/kiosk.functions.ts`
+- Modify: `src/lib/catalog.functions.server.ts`
 - Modify: `src/lib/catalog.functions.ts`
 - Test: existing `src/lib/kiosk.functions.test.ts` and `src/lib/catalog.functions.test.ts` (run only; do not add duplicate contract tests)
 
@@ -43,9 +92,9 @@
 - Consumes: `readKioskCookie(secret): KioskCookiePayload | null`, `serverEnv.KIOSK_COOKIE_SECRET`, `db`, `kiosks`, `eq`, and existing `toKiosk`.
 - Produces: exported `getKioskSession` with `Kiosk | null` result and exported nested catalog types for the UI import.
 
-- [ ] **Step 1: Add `getKioskSessionHandler` beside the existing kiosk handlers.**
+- [ ] **Step 1: Add `getKioskSessionHandler` in the server-only kiosk module.**
 
-Update the kiosk cookie import and add this handler before `listKiosksHandler`:
+Add this handler in `kiosk.functions.server.ts` beside the existing server handlers, then register the imported handler in the client-safe wrapper:
 
 ```ts
 import { readKioskCookie, setKioskCookie } from "./kiosk-cookie.server";
