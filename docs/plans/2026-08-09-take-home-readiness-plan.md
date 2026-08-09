@@ -102,6 +102,72 @@ git add .env.example README.md
 git commit -m "docs(readme): document complete local setup"
 ```
 
+### Task 1A: Align active claim gates with documented runtime configuration
+
+**Files:**
+- Modify: `src/lib/kiosk-session.ts`
+- Modify: `src/lib/kitchen.ts`
+- Modify: `src/lib/kiosk-session.test.ts`
+- Modify: `src/lib/kitchen.test.ts`
+- Modify: `e2e/browser/kiosk-claim-helpers.ts`
+- Modify: `e2e/browser/kitchen-queue-helpers.ts`
+
+**Why this is required:** Task 1’s real browser smoke test established that the active kiosk and staff claim modules ignore `KIOSK_CLAIM_PASSWORD` and instead hardcode `warm-melted`. That makes the copied `.env.example` unable to perform the documented flows. The user approved this root-cause repair on 2026-08-09.
+
+**Interfaces:**
+- Consumes: existing validated `serverEnv.KIOSK_CLAIM_PASSWORD`.
+- Produces: kiosk and staff claim gates that accept the configured password and reject an unset configuration or other values using their existing error code contracts.
+- Preserves: existing in-memory session lifecycle, validation/error-copy contracts, browser interactions, and all existing production dependencies.
+
+- [ ] **Step 1: Add focused red tests for configured claim credentials**
+
+Before production edits, add focused unit coverage that loads each active claim module with a mocked `serverEnv` value and proves:
+
+1. the configured password succeeds;
+2. `warm-melted` fails when it is not configured;
+3. an empty configured password produces the module’s existing `configuration` error.
+
+Run the focused test files and confirm these assertions fail because the modules still use their hardcoded constants.
+
+- [ ] **Step 2: Make the active handlers read validated configuration**
+
+Replace only `SETUP_PASSWORD` and `STAFF_PASSWORD` comparisons with the existing `serverEnv.KIOSK_CLAIM_PASSWORD` value. Preserve `invalid_input` precedence for empty submitted values. If the configured value is absent, use the existing `configuration` error code; otherwise preserve the current `invalid_password` behavior for a mismatch.
+
+Do not migrate components to separate DB-backed handlers, rewrite session storage, change cookie semantics, or add a second configuration mechanism. This task restores the explicit configuration contract to the already-active flows.
+
+- [ ] **Step 3: Synchronize browser fixtures with the configured test environment**
+
+Replace the hardcoded browser-helper password with `process.env.KIOSK_CLAIM_PASSWORD`. Fail fast with a clear test setup error if it is absent. The current CI workflow already injects that value; local runs use the copied `.env` or an explicit shell value. Keep all claim clicks and navigation assertions real.
+
+- [ ] **Step 4: Verify red-green and real flows**
+
+Run the focused unit tests after production changes and confirm they pass. Then run both browser flows with `KIOSK_CLAIM_PASSWORD=dev-kiosk-claim-2026`:
+
+```bash
+bun run test:e2e:core -- e2e/browser/kiosk-claim.spec.ts
+bun run test:e2e:core -- e2e/browser/kitchen-queue.spec.ts
+```
+
+Confirm a copied `.env.example` can claim both kiosk and staff sessions using the documented value and reach their normal screens.
+
+- [ ] **Step 5: Run quality checks and commit**
+
+Run:
+
+```bash
+bun run lint
+bun run format
+bun run typecheck
+bun test src/lib/kiosk-session.test.ts src/lib/kitchen.test.ts
+```
+
+Expected: all commands exit zero. Commit the atomic runtime/configuration repair:
+
+```bash
+git add src/lib/kiosk-session.ts src/lib/kitchen.ts src/lib/kiosk-session.test.ts src/lib/kitchen.test.ts e2e/browser/kiosk-claim-helpers.ts e2e/browser/kitchen-queue-helpers.ts
+git commit -m "fix(kiosk): honor configured claim password"
+```
+
 ### Task 2: Document the container runtime contract and deployment prerequisite
 
 **Files:**
