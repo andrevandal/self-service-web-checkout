@@ -30,6 +30,13 @@ const formatCreatedAt = (createdAt: string): string =>
     minute: "2-digit",
   }).format(new Date(createdAt));
 
+const formatDelta = (cents: number): string => {
+  if (cents === 0) {
+    return "";
+  }
+  return ` (${cents > 0 ? "+" : "−"}${formatCents(Math.abs(cents))})`;
+};
+
 const getKitchenErrorCode = (error: unknown): KitchenErrorCode | null => {
   if (error && typeof error === "object" && "code" in error) {
     const code = error.code;
@@ -238,10 +245,16 @@ const OrderCard = ({
           {item.variants.length > 0 || item.addons.length > 0 ? (
             <ul className="flex flex-wrap gap-x-3 gap-y-1 pl-5 text-body-s text-muted-foreground">
               {item.variants.map((variant) => (
-                <li key={variant.id}>{variant.optionName}</li>
+                <li key={variant.id}>
+                  {variant.optionName}
+                  {formatDelta(variant.priceDeltaCents)}
+                </li>
               ))}
               {item.addons.map((addon) => (
-                <li key={addon.id}>{addon.addonName}</li>
+                <li key={addon.id}>
+                  {addon.addonName}
+                  {formatDelta(addon.priceDeltaCents)}
+                </li>
               ))}
             </ul>
           ) : null}
