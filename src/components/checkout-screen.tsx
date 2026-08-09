@@ -63,7 +63,7 @@ export const CheckoutScreen = ({
   onComplete,
   onPaymentStateChange,
 }: CheckoutScreenProps) => {
-  const mountedRef = useRef(true);
+  const activeRunRef = useRef(0);
   const createPendingOrderRef = useRef<() => Promise<void>>(() => Promise.resolve());
   const [phase, setPhase] = useState<CheckoutPhase>("creating_order");
   const [order, setOrder] = useState<CreateOrderResult | null>(null);
@@ -82,8 +82,8 @@ export const CheckoutScreen = ({
       reconcilePaymentAttempt({ data: input }),
   });
 
-  const runAttempt = async (orderId: string) => {
-    if (!mountedRef.current) {
+  const runAttempt = async (orderId: string, runId: number) => {
+    if (activeRunRef.current !== runId) {
       return;
     }
     setFailureMessage(PAYMENT_FAILURE_COPY);
@@ -91,7 +91,7 @@ export const CheckoutScreen = ({
     setPhase("starting_attempt");
     try {
       const attempt = await startAttemptMutation.mutateAsync({ orderId });
-      if (!mountedRef.current) {
+      if (activeRunRef.current !== runId) {
         return;
       }
       setAttemptId(attempt.id);
@@ -99,7 +99,7 @@ export const CheckoutScreen = ({
       const receipt = await executeTerminalCommand(attempt.terminalCommand, {
         expectedAmountCents: attempt.expectedAmountCents,
       });
-      if (!mountedRef.current) {
+      if (activeRunRef.current !== runId) {
         return;
       }
       setPhase("reconciling");
@@ -107,7 +107,7 @@ export const CheckoutScreen = ({
         attemptId: attempt.id,
         receipt,
       });
-      if (!mountedRef.current) {
+      if (activeRunRef.current !== runId) {
         return;
       }
       if (result.attemptStatus !== "approved" || !result.orderNumber) {
@@ -116,13 +116,13 @@ export const CheckoutScreen = ({
         return;
       }
       await printReceipt(receipt);
-      if (!mountedRef.current) {
+      if (activeRunRef.current !== runId) {
         return;
       }
       setOrderNumber(result.orderNumber);
       setPhase("confirmed");
     } catch {
-      if (mountedRef.current) {
+      if (activeRunRef.current === runId) {
         setFailureMessage(PAYMENT_FAILURE_COPY);
         setPhase("failed");
       }
@@ -130,17 +130,18 @@ export const CheckoutScreen = ({
   };
 
   const createPendingOrder = async () => {
+    const runId = ++activeRunRef.current;
     setPhase("creating_order");
     setFailureMessage(START_FAILURE_COPY);
     try {
       const createdOrder = await createOrderMutation.mutateAsync(cartToCreateOrderInput(cart));
-      if (!mountedRef.current) {
+      if (activeRunRef.current !== runId) {
         return;
       }
       setOrder(createdOrder);
-      await runAttempt(createdOrder.id);
+      await runAttempt(createdOrder.id, runId);
     } catch {
-      if (mountedRef.current) {
+      if (activeRunRef.current === runId) {
         setFailureMessage(START_FAILURE_COPY);
         setPhase("failed");
       }
@@ -151,7 +152,7 @@ export const CheckoutScreen = ({
   useEffect(() => {
     void createPendingOrderRef.current();
     return () => {
-      mountedRef.current = false;
+      activeRunRef.current += 1;
     };
   }, []);
 
@@ -212,7 +213,7 @@ export const CheckoutScreen = ({
               className="inline-flex min-h-12 items-center justify-center rounded-pill bg-primary px-6 py-3 font-semibold text-primary-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               onClick={() => {
                 if (order) {
-                  void runAttempt(order.id);
+                  void runAttempt(order.id, ++activeRunRef.current);
                 } else {
                   void createPendingOrder();
                 }
