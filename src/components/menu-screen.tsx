@@ -346,10 +346,10 @@ export const MenuScreen = ({ kioskId }: MenuScreenProps) => {
             {!normalizedSearch && categories.length > 0 && (
               <Carousel
                 aria-label="Menu categories"
-                className="-mx-5 w-[calc(100%+2.5rem)]"
+                className="w-full"
                 opts={{ align: "start", dragFree: true }}
               >
-                <CarouselContent className="-ml-3 pl-5 pr-5">
+                <CarouselContent className="-ml-3">
                   {categories.map((category) => (
                     <CarouselItem className="basis-auto pl-3" key={category.id}>
                       <button
