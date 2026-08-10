@@ -1,7 +1,11 @@
 import { expect, type Page } from "@playwright/test";
 
 export const enterSetupPassword = async (page: Page) => {
-  await page.getByLabel("Shared setup password").fill("dev-kiosk-claim-2026");
+  const password = process.env.KIOSK_CLAIM_PASSWORD;
+  if (!password) {
+    throw new Error("KIOSK_CLAIM_PASSWORD is required for kiosk claim browser tests");
+  }
+  await page.getByLabel("Shared setup password").fill(password);
   await page.getByRole("button", { name: "Continue" }).click();
 };
 

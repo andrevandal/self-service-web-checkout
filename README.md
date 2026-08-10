@@ -29,11 +29,12 @@ Prerequisites:
 bun install
 cp .env.example .env
 bun run db:migrate
+bun run db:seed
 bun run dev
 ```
 
-- `.env` is optional: defaults use `DATABASE_URL=file:./.data/local.db` and
-`PORT=3000`.
+- Copied sample values are development-only and enable kiosk/staff flows locally.
+- Before deployment, replace the password, cookie secrets, cookie security settings, and database URL.
 - Open <http://localhost:3000/> or verify the running app:
 
 ```bash
@@ -60,5 +61,17 @@ bun run build
 bun run start
 ```
 
-See [docs/](docs/) for deployment and contributor
-guidance.
+## Architecture and production boundaries
+
+TanStack server functions are the typed client/API boundary. Terminal integration
+is deliberately simulated: the server creates payment attempts and correlates
+and reconciles simulated terminal receipts; it does not perform real capture,
+provide PCI compliance, or integrate a payment provider.
+
+One restaurant uses one app container. Kiosk and staff sessions share that
+process and its in-process kitchen event dispatcher. Additional kiosks connect
+to the same restaurant container; shared pub/sub is needed only when one
+restaurant runs multiple app instances.
+
+See the [deployment guide](docs/deployment.md) and [contributor
+guidance](AGENTS.md).
