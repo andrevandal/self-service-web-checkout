@@ -18,6 +18,23 @@ clear, low-friction interface. The project uses that scenario to guide product
 and technical decisions without presenting unimplemented checkout capabilities
 as available today.
 
+<details>
+<summary>Screenshots (tablet viewport)</summary>
+
+| Setup | Menu | Customize |
+| --- | --- | --- |
+| ![Kiosk setup screen](docs/images/kiosk-setup.webp) | ![Kiosk menu screen](docs/images/kiosk-menu.webp) | ![Item customization drawer](docs/images/kiosk-customize.webp) |
+
+| Order details | Payment method | Payment complete |
+| --- | --- | --- |
+| ![Order details drawer](docs/images/kiosk-order-details.webp) | ![Payment method selection](docs/images/kiosk-payment-method.webp) | ![Payment complete screen](docs/images/kiosk-payment-complete.webp) |
+
+| Kitchen queue |
+| --- |
+| ![Kitchen queue with a live paid order](docs/images/kitchen-queue.webp) |
+
+</details>
+
 ## First-time setup
 
 Prerequisites:
