@@ -4,7 +4,7 @@
 
 **Goal:** Make the repository clone-and-run ready for a take-home evaluator and make its operational boundaries explicit without expanding application runtime scope.
 
-**Architecture:** Keep the existing application, migration, seed, Docker image, and one-container-per-restaurant topology intact. Provide development-only local defaults and a linear setup path; describe containers as application runtimes against an initialized database; document architectural decisions and go-live responsibilities in the README while synchronizing the deployment guide.
+**Architecture:** Keep the existing application, migration, seed, Docker image, and one-container-per-restaurant topology intact. Provide development-only local defaults and a linear setup path; describe containers as application runtimes against an initialized database in the deployment guide; document architecture decisions in the README while synchronizing deployment documentation.
 
 **Tech Stack:** Bun, TanStack Start, Drizzle/libSQL, Docker, Markdown documentation.
 
@@ -14,7 +14,7 @@
 - `.env.example` values are development-only examples, never deployable secrets; README must require replacement for deployment.
 - Container guidance assumes the target database is already reachable, migrated, and seeded before app startup.
 - Preserve one application container per restaurant. Multiple kiosk/staff sessions use the in-process kitchen dispatcher; do not add pub/sub.
-- Keep all evaluator-facing explanation in `README.md`; do not create a separate take-home document.
+- Keep README first-time setup and architecture guidance concise; keep container runtime and deployment operations in `docs/deployment.md`.
 - Do not mention the Playwright/EventSource harness limitation.
 
 ---
@@ -171,7 +171,6 @@ git commit -m "fix(kiosk): honor configured claim password"
 ### Task 2: Document the container runtime contract and deployment prerequisite
 
 **Files:**
-- Modify: `README.md:43-64`
 - Modify: `docs/deployment.md:1-53`
 - Test: `Dockerfile:1-27` and `docker-compose.yml:1-16` (existing runtime contract; no source-code test)
 
@@ -183,9 +182,9 @@ git commit -m "fix(kiosk): honor configured claim password"
 
 Inspect `Dockerfile` and `docs/deployment.md`. Confirm the runtime stage copies only `package.json` and `.output`, while the deployment guide already states that Compose does not run migrations. This anchors the new guidance in the actual image rather than inventing startup behavior.
 
-- [ ] **Step 2: Add a README container section**
+- [ ] **Step 2: Add a deployment-guide container section**
 
-After `## Development`, add `## Container runtime` with:
+Add `## Container runtime` after the deployment guide's runtime-only introduction with:
 
 ```bash
 docker build -t self-service-web-checkout .
@@ -200,7 +199,7 @@ docker run --rm -p 3000:3000 \
   self-service-web-checkout
 ```
 
-State directly beneath it that `kiosk-data` must already contain a database that is reachable, migrated, and seeded. The command demonstrates runtime configuration only; it is not a provisioning command. Link to `docs/deployment.md` for topology detail.
+State directly beneath it that `kiosk-data` must already contain a reachable, migrated, seeded database. The command demonstrates runtime configuration only; it is not a provisioning command.
 
 - [ ] **Step 3: Synchronize deployment guide language**
 
@@ -240,10 +239,10 @@ bun run typecheck
 bun run build
 ```
 
-Expected: all commands exit zero. Commit only the synchronized container/deployment documentation:
+Expected: all commands exit zero. Commit the synchronized container/deployment documentation:
 
 ```bash
-git add README.md docs/deployment.md
+git add docs/deployment.md
 git commit -m "docs(deploy): clarify container database boundary"
 ```
 
@@ -281,39 +280,32 @@ git add docker-compose.yml docker-compose.sqld.yml docs/deployment.md docs/plans
 git commit -m "fix(deploy): pass claim configuration to compose"
 ```
 
-### Task 3: Make architecture choices and go-live work legible to evaluators
+### Task 3: Make architecture choices legible to evaluators
 
 **Files:**
-- Modify: `README.md:after Container runtime`
+- Modify: `README.md:after Development`
 - Test: `README.md` reviewed against `docs/PRD.md:58-66,176-183` (documentation consistency, no source-text test)
 
 **Interfaces:**
-- Consumes: existing typed server functions, fake terminal/reconciliation implementation, in-process kitchen event dispatcher, PostHog integration, and one-container deployment model.
-- Produces: an evaluator-facing explanation of current guarantees, scale boundary, and production responsibilities without claiming unimplemented infrastructure.
+- Consumes: existing typed server functions, fake terminal/reconciliation implementation, in-process kitchen event dispatcher, and one-container deployment model.
+- Produces: an evaluator-facing explanation of current architecture and scale boundaries without claiming unimplemented infrastructure.
 
 - [ ] **Step 1: Add `## Architecture and production boundaries` to README**
 
-Place it after `## Container runtime`. Use concise prose with these exact decisions:
+Place it after `## Development`. Use concise prose with these exact decisions:
 
 - TanStack server functions are the typed client/API boundary.
 - Terminal integration is intentionally simulated; it models payment-attempt correlation and reconciliation, not real card capture, PCI compliance, or a provider integration.
 - One restaurant runs one application container. Its kiosk and staff sessions share that process and its in-process kitchen event dispatcher.
 - More kiosks connect to the same restaurant container. Shared pub/sub becomes necessary only when one restaurant is deployed as multiple application instances.
-- Kitchen workflow, PostHog, and Docker support extend the required menu/order/payment exercise rather than becoming prerequisites for it.
 
-Do not mention test harness behavior.
+Do not mention test harness behavior, optional extensions, or a go-live checklist.
 
-- [ ] **Step 2: Add `### Before go-live` below the boundary section**
+- [ ] **Step 2: Cross-check claims against source and PRD**
 
-Use an unambiguous bullet list requiring: durable database plus pre-release migration procedure; catalog ownership; unique/rotated secrets; secure cookies/TLS/trusted proxy; persistent storage/backups/restore exercises; health monitoring/alerts/operational logs; real payment-provider and PCI/compliance design if payments leave simulation; and shared transport only for multi-instance restaurant deployment.
+Read `src/lib/payment.functions.server.ts`, `src/lib/kitchen-events.server.ts`, `docs/PRD.md`, and the deployment guide. Confirm every README claim reflects current code and that no sentence promises automatic migration, seed, payment processing, or high availability.
 
-Introductory sentence: these are deployment responsibilities, not features supplied by this take-home repository.
-
-- [ ] **Step 3: Cross-check claims against source and PRD**
-
-Read `src/lib/payment.functions.server.ts`, `src/lib/kitchen-events.server.ts`, `docs/PRD.md`, and the updated container docs. Confirm every README claim reflects current code and that no sentence promises automatic migration, seed, payment processing, or high availability.
-
-- [ ] **Step 4: Run final quality and smoke verification**
+- [ ] **Step 3: Run final quality and smoke verification**
 
 Run:
 
@@ -331,14 +323,14 @@ Then run the application with the documented local setup and verify:
 curl --fail http://127.0.0.1:3000/api/health
 ```
 
-Expected: static checks,  unit tests, and build pass; health endpoint responds successfully.
+Expected: static checks, unit tests, and build pass; health endpoint responds successfully.
 
-- [ ] **Step 5: Commit and update the existing PR**
+- [ ] **Step 4: Commit and update the existing PR**
 
 ```bash
-git add README.md
-git commit -m "docs(readme): explain architecture and go-live boundaries"
+git add README.md docs/deployment.md docs/specs/2026-08-09-take-home-readiness-design.md docs/plans/2026-08-09-take-home-readiness-plan.md
+git commit -m "docs(readme): relocate deployment guidance"
 git push
 ```
 
-Update PR #8 description to summarize the delivered clone-and-run setup, container contract, and explicitly bounded production topology.
+Update PR #8 description to reflect the README/deployment-guide split.

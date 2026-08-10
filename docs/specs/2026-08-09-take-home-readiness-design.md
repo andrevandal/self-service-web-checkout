@@ -10,7 +10,6 @@ Status: Approved for planning
 - [First-time local setup](#first-time-local-setup)
 - [Container runtime contract](#container-runtime-contract)
 - [Architecture and production boundaries](#architecture-and-production-boundaries)
-- [Go-live requirements](#go-live-requirements)
 - [Documentation structure](#documentation-structure)
 - [Verification](#verification)
 - [Out of scope](#out-of-scope)
@@ -28,7 +27,7 @@ POC conveniences for production guarantees.
   and staff flows with development-only sample configuration.
 - Describe a container as an application runtime connected to an already operational
   database, not as database provisioning or deployment automation.
-- Make architectural decisions and production work explicit in the README.
+- Make architectural decisions explicit in the README.
 - Preserve the single-container-per-restaurant topology as a production-valid initial
   deployment model.
 
@@ -50,9 +49,10 @@ values are for a local evaluator and must not be presented as deployable secrets
 
 ## Container runtime contract
 
-README container guidance must show how to run the application image with its runtime
-environment and a persistent, reachable database. It must state that the database is
-already created, migrated, and seeded before the container is started.
+Deployment-guide container guidance must show how to run the application image with
+its runtime environment and a persistent, reachable database. It must state that
+the database is already created, migrated, and seeded before the container is
+started.
 
 The container remains responsible only for serving application traffic and health
 checks. It does not acquire credentials, provision storage, apply migrations, seed
@@ -70,35 +70,14 @@ Add a concise README section that states:
 - In-process kitchen events are appropriate for that single-container restaurant
   topology. A shared pub/sub transport becomes necessary only when one restaurant
   needs multiple application instances, not when it adds kiosks.
-- PostHog, kitchen workflow, and Docker support are optional extensions around the
-  core menu/order/payment assignment flow.
-
-## Go-live requirements
-
-Before production deployment, an operator must provide and verify:
-
-- a managed or otherwise durable database with a migration procedure before release;
-- catalog seeding or catalog-management ownership;
-- unique, rotated application and cookie secrets;
-- secure cookies, TLS termination, and trusted proxy configuration;
-- persistent data storage, backups, restore exercises, and retention expectations;
-- health monitoring, alerting, and operational logs;
-- a real payment-provider and PCI/compliance design if payments leave simulation;
-- shared event transport only when horizontally scaling a single restaurant.
-
-This is a production readiness boundary list, not an implementation commitment in the
-take-home scope.
 
 ## Documentation structure
 
-Keep evaluator-facing information in `README.md`:
+Keep first-time setup and architecture information in `README.md`; keep container
+runtime, Compose, database, and migration operations in `docs/deployment.md`.
 
-- first-time setup and container runtime instructions near existing run guidance;
-- the architecture/production-boundaries section after development guidance;
-- the go-live requirements as a compact, explicit subsection.
-
-Do not create a separate take-home document. The primary README is the required entry
-point for a teammate cloning the repository.
+Do not create a separate take-home document. The README and deployment guide are
+the required entry points for a teammate cloning and operating the repository.
 
 ## Verification
 
