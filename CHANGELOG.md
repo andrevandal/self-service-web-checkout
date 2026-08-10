@@ -1,5 +1,26 @@
 # Changelog
 
+## [0.3.0](https://github.com/andrevandal/self-service-web-checkout/compare/self-service-web-checkout-v0.2.0...self-service-web-checkout-v0.3.0) (2026-08-10)
+
+
+### Features
+
+* **checkout:** add credit/debit payment method selection ([97132bb](https://github.com/andrevandal/self-service-web-checkout/commit/97132bbec34ee6bbe89c59242d51517106da7b40))
+* **integration:** wire backend platform ([c1d9992](https://github.com/andrevandal/self-service-web-checkout/commit/c1d9992f7891c9da7d2b2fd861429595260bb359))
+* **integration:** wire kiosk-ui to backend-platform ([86cc724](https://github.com/andrevandal/self-service-web-checkout/commit/86cc724ead93b478ef5758347b39ee1c90be1d16))
+* **menu:** show all categories, fix image sizing, add carousel ([37bdd51](https://github.com/andrevandal/self-service-web-checkout/commit/37bdd51cbc8ec3c9f27e16a57d02271e0aa3e6f3))
+
+
+### Bug Fixes
+
+* **ci:** provide required auth env vars for e2e tests ([873f4af](https://github.com/andrevandal/self-service-web-checkout/commit/873f4afeefb0f998995ce7c47bd5c328e3369668))
+* **deploy:** pass claim configuration to compose ([f425758](https://github.com/andrevandal/self-service-web-checkout/commit/f4257580924bde9015a0c712faea09b76de3bd72))
+* **e2e:** sync kiosk claims on menu readiness ([8606bf6](https://github.com/andrevandal/self-service-web-checkout/commit/8606bf68cf851e945e82fecaaddf945dc4d79864))
+* **e2e:** synchronize kiosk claim navigation ([dade2cb](https://github.com/andrevandal/self-service-web-checkout/commit/dade2cbc0056a611823e077ffd88133113566b11))
+* **kiosk-ui:** fix carousel clipping and simplify header/menu copy ([fc90f30](https://github.com/andrevandal/self-service-web-checkout/commit/fc90f30294209dc9ba73b9db7272efdc0433d163))
+* **kiosk:** honor configured claim password ([6878e92](https://github.com/andrevandal/self-service-web-checkout/commit/6878e92bdb8bc0a4fd21677a1e8dbbab47b83fc6))
+* **kiosk:** verify setup password before revealing kiosk chooser ([2248650](https://github.com/andrevandal/self-service-web-checkout/commit/22486505953d0e0f712d2375f7d55dd45a92ccca))
+
 ## [0.2.0](https://github.com/andrevandal/self-service-web-checkout/compare/self-service-web-checkout-v0.1.0...self-service-web-checkout-v0.2.0) (2026-08-09)
 
 
