@@ -63,15 +63,14 @@ bun run start
 
 ## Architecture and production boundaries
 
-TanStack server functions are the typed client/API boundary. Terminal integration
-is deliberately simulated: the server creates payment attempts and correlates
+- TanStack server functions are the typed client/API boundary.
+- Terminal integration is deliberately simulated: the server creates payment attempts and correlates
 and reconciles simulated terminal receipts; it does not perform real capture,
 provide PCI compliance, or integrate a payment provider.
-
-One restaurant uses one app container. Kiosk and staff sessions share that
+- One restaurant uses one app container. Kiosk and staff sessions share that
 process and its in-process kitchen event dispatcher. Additional kiosks connect
 to the same restaurant container; shared pub/sub is needed only when one
 restaurant runs multiple app instances.
 
-See the [deployment guide](docs/deployment.md) and [contributor
+See the [docs](docs/) and [contributor
 guidance](AGENTS.md).
