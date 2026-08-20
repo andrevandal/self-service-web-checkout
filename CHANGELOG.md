@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/andrevandal/self-service-web-checkout/compare/self-service-web-checkout-v0.3.0...self-service-web-checkout-v0.4.0) (2026-08-20)
+
+
+### Features
+
+* **db:** add indexes on FK and filter columns ([834180e](https://github.com/andrevandal/self-service-web-checkout/commit/834180eccadd1ebef4f5150a026416f61247f2e9))
+
 ## [0.3.0](https://github.com/andrevandal/self-service-web-checkout/compare/self-service-web-checkout-v0.2.0...self-service-web-checkout-v0.3.0) (2026-08-10)
 
 
