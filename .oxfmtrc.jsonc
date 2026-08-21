@@ -10,6 +10,7 @@
     "CHANGELOG.md",
     ".cta.json",
     "docs/**/*.md",
+    "GOAL.md",
     ".agents/skills/**",
   ],
 }
